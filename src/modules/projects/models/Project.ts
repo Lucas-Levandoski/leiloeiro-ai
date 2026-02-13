@@ -2,6 +2,9 @@ export interface Project {
   id: string;
   name: string;
   description: string;
-  fileUrl?: string;
+  editalUrl?: string;
+  municipalUrl?: string;
+  price?: string;
+  estimatedPrice?: string;
   createdAt: string;
 }

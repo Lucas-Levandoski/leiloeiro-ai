@@ -6,7 +6,8 @@ create table public.projects (
   id uuid default uuid_generate_v4() primary key,
   name text not null,
   description text,
-  file_url text,
+  edital_url text,
+  municipal_url text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 

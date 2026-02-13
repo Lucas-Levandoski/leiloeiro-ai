@@ -1,20 +1,13 @@
-import { supabase } from "@/lib/supabaseClient";
 import { Project } from "../models/Project";
-
-const BUCKET_NAME = "project-files";
+import { 
+  getProjects, 
+  getProjectById, 
+  createProjectAction, 
+  updateProjectAction, 
+  deleteProjectAction 
+} from "@/actions/projects";
 
 class ProjectService {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private mapToProject(row: any): Project {
-    return {
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      fileUrl: row.file_url,
-      createdAt: row.created_at,
-    };
-  }
-
   private notifyListeners(): void {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("project-update"));
@@ -22,110 +15,61 @@ class ProjectService {
   }
 
   async getAll(): Promise<Project[]> {
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching projects:", error);
-      return [];
-    }
-    return (data || []).map(this.mapToProject);
+    return await getProjects();
   }
 
   async getById(id: string): Promise<Project | null> {
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error) {
-      console.error("Error fetching project:", error);
-      return null;
-    }
-    return this.mapToProject(data);
+    return await getProjectById(id);
   }
 
-  async create(project: Omit<Project, "id" | "createdAt" | "fileUrl">, file?: File): Promise<Project> {
-    let fileUrl = "";
+  async create(project: Omit<Project, "id" | "createdAt" | "editalUrl" | "municipalUrl">, editalFile?: File, municipalFile?: File): Promise<Project> {
+    const formData = new FormData();
+    formData.append("name", project.name);
+    if (project.description) formData.append("description", project.description);
+    if (project.price) formData.append("price", project.price);
+    if (project.estimatedPrice) formData.append("estimatedPrice", project.estimatedPrice);
+    
+    if (editalFile) formData.append("editalFile", editalFile);
+    if (municipalFile) formData.append("municipalFile", municipalFile);
 
-    if (file) {
-      const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from(BUCKET_NAME)
-        .getPublicUrl(fileName);
-        
-      fileUrl = publicUrl;
+    const result = await createProjectAction(formData);
+    
+    if (!result.success || !result.data) {
+        throw new Error(result.error || "Failed to create project");
     }
-
-    const { data, error } = await supabase
-      .from("projects")
-      .insert({
-        name: project.name,
-        description: project.description,
-        file_url: fileUrl || null,
-      })
-      .select();
-
-    if (error) throw error;
-    if (!data || data.length === 0) throw new Error("No data returned from insert");
     
     this.notifyListeners();
-    return this.mapToProject(data[0]);
+    return result.data;
   }
 
-  async update(id: string, updates: Partial<Omit<Project, "id" | "createdAt">>, file?: File): Promise<Project | null> {
-    let fileUrl = updates.fileUrl;
+  async update(id: string, updates: Partial<Omit<Project, "id" | "createdAt">>, editalFile?: File, municipalFile?: File): Promise<Project | null> {
+    const formData = new FormData();
+    if (updates.name !== undefined) formData.append("name", updates.name);
+    if (updates.description !== undefined) formData.append("description", updates.description);
+    if (updates.price !== undefined) formData.append("price", updates.price);
+    if (updates.estimatedPrice !== undefined) formData.append("estimatedPrice", updates.estimatedPrice);
 
-    if (file) {
-      const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .upload(fileName, file);
+    if (editalFile) formData.append("editalFile", editalFile);
+    if (municipalFile) formData.append("municipalFile", municipalFile);
 
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from(BUCKET_NAME)
-        .getPublicUrl(fileName);
-        
-      fileUrl = publicUrl;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updatePayload: any = {
-      name: updates.name,
-      description: updates.description,
-    };
+    const result = await updateProjectAction(id, formData);
     
-    if (fileUrl !== undefined) {
-      updatePayload.file_url = fileUrl;
+    if (!result.success) {
+        throw new Error(result.error || "Failed to update project");
     }
-
-    const { data, error } = await supabase
-      .from("projects")
-      .update(updatePayload)
-      .eq("id", id)
-      .select();
-
-    if (error) throw error;
-    if (!data || data.length === 0) return null;
     
-    this.notifyListeners();
-    return this.mapToProject(data[0]);
+    if (result.data) {
+        this.notifyListeners();
+        return result.data;
+    }
+    return null;
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await supabase.from("projects").delete().eq("id", id);
-    if (error) throw error;
+    const result = await deleteProjectAction(id);
+    if (!result.success) {
+        throw new Error(result.error || "Failed to delete project");
+    }
     this.notifyListeners();
   }
 }
