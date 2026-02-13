@@ -1,0 +1,3 @@
+ALTER TABLE projects
+DROP COLUMN IF EXISTS price,
+DROP COLUMN IF EXISTS estimated_price;

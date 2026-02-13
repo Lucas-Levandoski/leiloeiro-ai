@@ -22,7 +22,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import Link from "next/link"
 import { extractTextFromPDF, extractPropertiesFromText, analyzeEditalStructure, extractLoteDetails } from "@/actions/agents"
-import { Loader2, Sparkles, CheckCircle2 } from "lucide-react"
+import { Loader2, Sparkles, CheckCircle2, Calendar, MapPin, Gavel, Landmark } from "lucide-react"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -41,8 +41,6 @@ const formSchema = z.object({
     message: "O nome deve ter pelo menos 2 caracteres.",
   }),
   description: z.string().optional(),
-  price: z.string().optional(),
-  estimatedPrice: z.string().optional(),
 })
 
 interface ProjectViewProps {
@@ -54,10 +52,8 @@ import { LoteCard } from "../components/LoteCard"
 export function ProjectView({ projectId }: ProjectViewProps) {
   const router = useRouter()
   const [editalFile, setEditalFile] = useState<File | null>(null)
-  const [municipalFile, setMunicipalFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [currentEditalUrl, setCurrentEditalUrl] = useState<string | null>(null)
-  const [currentMunicipalUrl, setCurrentMunicipalUrl] = useState<string | null>(null)
   
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
@@ -70,8 +66,6 @@ export function ProjectView({ projectId }: ProjectViewProps) {
     defaultValues: {
       name: "",
       description: "",
-      price: "",
-      estimatedPrice: "",
     },
   })
 
@@ -85,22 +79,19 @@ export function ProjectView({ projectId }: ProjectViewProps) {
             form.reset({
               name: project.name,
               description: project.description,
-              price: project.price || "",
-              estimatedPrice: project.estimatedPrice || "",
             })
             if (project.editalUrl) {
                 setCurrentEditalUrl(project.editalUrl);
             }
-            if (project.municipalUrl) {
-                setCurrentMunicipalUrl(project.municipalUrl);
+            if (project.details) {
+                setGlobalInfo(project.details);
             }
             if (project.lotes && project.lotes.length > 0) {
                 setLotes(project.lotes.map((l: any) => ({
                     id: l.id,
                     title: l.title,
                     description: l.description,
-                    price: l.price,
-                    estimatedPrice: l.estimated_price,
+                    auction_prices: l.auction_prices,
                     city: l.city,
                     state: l.state,
                     type: l.details?.type,
@@ -126,10 +117,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         const formData = new FormData();
         formData.append("name", values.name);
         if (values.description) formData.append("description", values.description);
-        if (values.price) formData.append("price", values.price);
-        if (values.estimatedPrice) formData.append("estimatedPrice", values.estimatedPrice);
         if (editalFile) formData.append("editalFile", editalFile);
-        if (municipalFile) formData.append("municipalFile", municipalFile);
         
         if (lotes.length > 0) {
             formData.append("lotes", JSON.stringify(lotes));
@@ -139,22 +127,19 @@ export function ProjectView({ projectId }: ProjectViewProps) {
           const updated = await projectService.update(projectId, {
             name: values.name,
             description: values.description || "",
-            price: values.price,
-            estimatedPrice: values.estimatedPrice,
-            lotes: lotes
-          }, editalFile || undefined, municipalFile || undefined)
+            lotes: lotes,
+            details: globalInfo
+          }, editalFile || undefined)
           
           if (updated) {
               if (updated.editalUrl) setCurrentEditalUrl(updated.editalUrl);
-              if (updated.municipalUrl) setCurrentMunicipalUrl(updated.municipalUrl);
               // Update lotes with returned data (containing real UUIDs)
               if (updated.lotes) {
                   setLotes(updated.lotes.map((l: any) => ({
                     id: l.id,
                     title: l.title,
                     description: l.description,
-                    price: l.price,
-                    estimatedPrice: l.estimated_price,
+                    auction_prices: l.auction_prices,
                     city: l.city,
                     state: l.state,
                     type: l.details?.type,
@@ -170,7 +155,30 @@ export function ProjectView({ projectId }: ProjectViewProps) {
             const { createProjectAction } = await import("@/actions/projects");
             const result = await createProjectAction(formData);
             if (result.success && result.data) {
-                router.push(`/portal/projects/${result.data.id}`);
+                // Also update with details if available, although currently createProjectAction doesn't accept details directly in the simplified call here without updating the component logic to pass it differently or update immediately after.
+                // Actually createProjectAction does accept details now via formData if we passed it.
+                // Let's rely on the user to save/update after extraction for now or update create logic fully if needed.
+                // But wait, we are creating a new project. If we have globalInfo here (from AI), we should pass it.
+                // But the form submit happens usually before AI extraction for new projects? 
+                // No, user can extract then save.
+                
+                // If we have globalInfo, we need to pass it to createProjectAction via formData
+                // But we constructed formData above without details.
+                // Let's add it.
+                if (globalInfo) {
+                     // We need to re-append or just append since we can't easily modify formData object here without a new one or assuming it's mutable (it is).
+                     formData.append("details", JSON.stringify(globalInfo));
+                }
+
+                const { createProjectAction } = await import("@/actions/projects");
+                // Re-create form data to be safe or just use the existing one
+                // formData.append was done above.
+                
+                const result = await createProjectAction(formData);
+
+                if (result.success && result.data) {
+                    router.push(`/portal/projects/${result.data.id}`);
+                }
             } else {
                 throw new Error(result.error || "Failed to create project");
             }
@@ -292,12 +300,6 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         setLotes(processedLotes);
         setAiStep('completed');
         
-        // If only 1 lote found, maybe pre-fill the main price fields?
-        if (processedLotes.length === 1) {
-            const lote = processedLotes[0];
-            if (lote.price) form.setValue('price', String(lote.price));
-        }
-
         // Auto-save the results
         if (projectId) {
             toast.promise(
@@ -307,18 +309,16 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                    const updated = await projectService.update(projectId, {
                        name: values.name,
                        description: values.description || "",
-                       price: values.price,
-                       estimatedPrice: values.estimatedPrice,
-                       lotes: processedLotes
-                   }, undefined, undefined); // We don't re-upload files here
+                       lotes: processedLotes,
+                       details: gInfo
+                   }, undefined); // We don't re-upload files here
                    
                    if (updated && updated.lotes) {
                        setLotes(updated.lotes.map((l: any) => ({
                             id: l.id,
                             title: l.title,
                             description: l.description,
-                            price: l.price,
-                            estimatedPrice: l.estimated_price,
+                            auction_prices: l.auction_prices,
                             city: l.city,
                             state: l.state,
                             type: l.details?.type,
@@ -413,7 +413,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                     {/* ... same as before ... */}
                     <CardHeader>
                         <CardTitle className="text-blue-800 dark:text-blue-300 flex items-center gap-2">
-                            📂 Documentação (Input)
+                            📂 Documentação
                         </CardTitle>
                         <CardDescription>
                             Faça o upload dos arquivos para análise.
@@ -436,34 +436,67 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                             {currentEditalUrl && (
                                 <FormDescription className="flex items-center gap-2 mt-2">
                                     Arquivo atual: 
+                                    <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                                        {decodeURIComponent(currentEditalUrl.split('/').pop()?.split('-').slice(1).join('-') || currentEditalUrl.split('/').pop() || 'Arquivo')}
+                                    </span>
                                     <Button asChild variant="link" className="p-0 h-auto">
                                         <Link href={currentEditalUrl} target="_blank">Visualizar</Link>
                                     </Button>
                                 </FormDescription>
                             )}
                         </FormItem>
-
-                        <FormItem>
-                            <FormLabel>Inscrição Municipal</FormLabel>
-                            <FormControl>
-                                <Input 
-                                    type="file" 
-                                    onChange={(e) => setMunicipalFile(e.target.files?.[0] || null)} 
-                                    disabled={loading}
-                                    className="bg-white dark:bg-background/50"
-                                />
-                            </FormControl>
-                            {currentMunicipalUrl && (
-                                <FormDescription className="flex items-center gap-2 mt-2">
-                                    Arquivo atual: 
-                                    <Button asChild variant="link" className="p-0 h-auto">
-                                        <Link href={currentMunicipalUrl} target="_blank">Visualizar</Link>
-                                    </Button>
-                                </FormDescription>
-                            )}
-                        </FormItem>
                     </CardContent>
                     </Card>
+
+                    {/* Section 2.5: Global Info (Displayed if available) */}
+                    {globalInfo && (
+                        <Card className="border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
+                            <CardHeader>
+                                <CardTitle className="text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
+                                    <Gavel className="h-5 w-5" />
+                                    Informações do Leilão
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {globalInfo.bankName && (
+                                    <div className="flex items-start gap-3">
+                                        <Landmark className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-1" />
+                                        <div>
+                                            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Banco / Comitente</p>
+                                            <p className="text-base text-indigo-700 dark:text-indigo-300">{globalInfo.bankName}</p>
+                                        </div>
+                                    </div>
+                                )}
+                                {globalInfo.auctionDate && (
+                                    <div className="flex items-start gap-3">
+                                        <Calendar className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-1" />
+                                        <div>
+                                            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Datas e Horários</p>
+                                            <p className="text-base text-indigo-700 dark:text-indigo-300 whitespace-pre-wrap">{globalInfo.auctionDate}</p>
+                                        </div>
+                                    </div>
+                                )}
+                                {globalInfo.auctionLocation && (
+                                    <div className="flex items-start gap-3 md:col-span-2">
+                                        <MapPin className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-1" />
+                                        <div>
+                                            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Local / Site</p>
+                                            <p className="text-base text-indigo-700 dark:text-indigo-300">{globalInfo.auctionLocation}</p>
+                                        </div>
+                                    </div>
+                                )}
+                                {globalInfo.auctioneer && (
+                                    <div className="flex items-start gap-3">
+                                        <Gavel className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-1" />
+                                        <div>
+                                            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Leiloeiro</p>
+                                            <p className="text-base text-indigo-700 dark:text-indigo-300">{globalInfo.auctioneer}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* Section 3: AI Output & Values */}
                     <Card className="border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20">

@@ -118,7 +118,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
             </CardHeader>
             <CardContent className="space-y-8">
                 {/* Price Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                     <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                         <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-semibold mb-3">
                             <DollarSign className="h-4 w-4" />
@@ -134,19 +134,10 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                                 ))}
                             </div>
                         ) : (
-                            <div className="text-2xl font-bold text-green-800 dark:text-green-300">
-                                {lote.price || "Não informado"}
+                            <div className="text-lg text-muted-foreground">
+                                Valores não informados
                             </div>
                         )}
-                    </div>
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-semibold mb-1">
-                            <DollarSign className="h-4 w-4" />
-                            Avaliação Estimada
-                        </div>
-                        <div className="text-2xl font-bold text-blue-800 dark:text-blue-300">
-                            {lote.estimated_price || "Não informado"}
-                        </div>
                     </div>
                 </div>
 

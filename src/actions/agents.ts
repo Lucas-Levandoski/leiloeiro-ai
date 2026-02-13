@@ -117,14 +117,22 @@ export async function analyzeEditalStructure(text: string) {
     You are an expert legal document analyzer specializing in Brazilian auction notices ("editais").
     
     Your task is to analyze the provided text and:
-    1. Identify Global Information: Due date of the sale, auctioneer name, major rules, etc.
+    1. Identify Global Information: 
+       - Bank/Seller Name (e.g., Caixa, Banco do Brasil, Santander, Justice Court, etc.)
+       - Auction Dates & Times (1st Auction, 2nd Auction dates)
+       - Auction Location/Website (Where it will happen)
+       - Auctioneer Name
+       - Edital Number
+       - General Rules summary
     2. Identify and Split "Lotes": The text contains multiple items/businesses for sale, called "Lotes". 
        You must identify each one and extract the raw text describing it.
 
     Return the result strictly as a JSON object with the following structure:
     {
       "globalInfo": {
-        "dueDate": "string (YYYY-MM-DD or description)",
+        "bankName": "string",
+        "auctionDate": "string (summary of dates/times)",
+        "auctionLocation": "string (URL or address)",
         "auctioneer": "string",
         "generalRules": "string (summary)",
         "editalNumber": "string"
@@ -132,7 +140,7 @@ export async function analyzeEditalStructure(text: string) {
       "lotes": [
         {
           "id": "string (e.g., '1', '01', 'A')",
-          "rawContent": "string (the full text description of this lote)"
+          "rawContent": "string (EXACT COPY of the text describing this lote, preserving all uppercase letters, line breaks and formatting. DO NOT summarize or alter.)"
         }
       ]
     }
@@ -186,7 +194,7 @@ export async function extractLoteDetails(loteText: string, globalContext?: any) 
     5. Address
     6. Price (Initial bid or valuation)
     7. Auction Prices (Extract specific prices for "1º Leilão", "2º Leilão", etc. if available)
-    8. Full Description (A detailed description of the lot, including relevant characteristics)
+    8. Full Description (The EXACT RAW TEXT of the description. Do not rewrite, summarize or fix typos. Keep uppercase letters.)
     
     Construct a "title" for this Lote using the pattern: "Lote {number} - {Type} {City} {State}".
     If the number is not in the text, use a generic identifier.
@@ -204,7 +212,7 @@ export async function extractLoteDetails(loteText: string, globalContext?: any) 
       "auction_prices": [
         { "label": "string (e.g. 1º Leilão)", "value": "string (e.g. R$ 100.000,00)" }
       ],
-      "description": "string (detailed description)"
+      "description": "string (The EXACT RAW TEXT from the source)"
     }
 
     Lote Text:

@@ -1,0 +1,2 @@
+ALTER TABLE projects
+ADD COLUMN IF NOT EXISTS details JSONB DEFAULT '{}'::jsonb;

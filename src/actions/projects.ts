@@ -12,11 +12,9 @@ function mapToProject(row: any): Project {
     name: row.name,
     description: row.description,
     editalUrl: row.file_url, // Changed from edital_url to file_url
-    municipalUrl: row.municipal_url,
-    price: row.price,
-    estimatedPrice: row.estimated_price,
     createdAt: row.created_at,
     lotes: row.lotes || [],
+    details: row.details || {},
   };
 }
 
@@ -104,21 +102,14 @@ export async function createProjectAction(formData: FormData): Promise<{ success
     const supabase = await createSupabaseServerClient();
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
-    const price = formData.get("price") as string;
-    const estimatedPrice = formData.get("estimatedPrice") as string;
     const editalFile = formData.get("editalFile") as File | null;
-    const municipalFile = formData.get("municipalFile") as File | null;
     const lotesJson = formData.get("lotes") as string;
+    const detailsJson = formData.get("details") as string;
 
     let editalUrl = "";
-    let municipalUrl = "";
 
     if (editalFile && editalFile.size > 0) {
       editalUrl = await uploadFile(editalFile);
-    }
-
-    if (municipalFile && municipalFile.size > 0) {
-      municipalUrl = await uploadFile(municipalFile);
     }
 
     const { data, error } = await supabase
@@ -127,9 +118,7 @@ export async function createProjectAction(formData: FormData): Promise<{ success
         name,
         description,
         file_url: editalUrl || null,
-        municipal_url: municipalUrl || null,
-        price: price || null,
-        estimated_price: estimatedPrice || null,
+        details: detailsJson ? JSON.parse(detailsJson) : {},
       })
       .select();
 
@@ -143,7 +132,7 @@ export async function createProjectAction(formData: FormData): Promise<{ success
           const lotesToInsert = lotes.map((lote: any) => ({
             project_id: data[0].id,
             title: lote.title || `Lote ${lote.id || 'Unknown'}`,
-            description: lote.description || lote.rawContent?.substring(0, 100) || '',
+            description: lote.description || lote.rawContent || '',
             price: lote.price,
             estimated_price: lote.estimatedPrice || lote.valuation,
             city: lote.city,
@@ -196,8 +185,8 @@ export async function updateProjectAction(id: string, formData: FormData): Promi
   try {
     const supabase = await createSupabaseServerClient();
     const editalFile = formData.get("editalFile") as File | null;
-    const municipalFile = formData.get("municipalFile") as File | null;
     const lotesJson = formData.get("lotes") as string;
+    const detailsJson = formData.get("details") as string;
 
     // Prepare update payload
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -209,18 +198,16 @@ export async function updateProjectAction(id: string, formData: FormData): Promi
     const description = formData.get("description");
     if (description !== null) updatePayload.description = description;
 
-    const price = formData.get("price");
-    if (price !== null) updatePayload.price = price;
-
-    const estimatedPrice = formData.get("estimatedPrice");
-    if (estimatedPrice !== null) updatePayload.estimated_price = estimatedPrice;
+    if (detailsJson) {
+        try {
+            updatePayload.details = JSON.parse(detailsJson);
+        } catch(e) {
+            console.error("Invalid details json", e);
+        }
+    }
 
     if (editalFile && editalFile.size > 0) {
       updatePayload.file_url = await uploadFile(editalFile);
-    }
-
-    if (municipalFile && municipalFile.size > 0) {
-      updatePayload.municipal_url = await uploadFile(municipalFile);
     }
 
     const { data, error } = await supabase
@@ -252,7 +239,7 @@ export async function updateProjectAction(id: string, formData: FormData): Promi
              const payload: any = {
                 project_id: id,
                 title: lote.title || `Lote ${lote.id || 'Unknown'}`,
-                description: lote.description || lote.rawContent?.substring(0, 100) || '',
+                description: lote.description || lote.rawContent || '',
                 price: lote.price,
                 estimated_price: lote.estimatedPrice || lote.valuation,
                 city: lote.city,

@@ -42,7 +42,18 @@ export function LoteCard({ lote, projectId, onDelete, onToggleFavorite, index }:
                 </div>
             </div>
             <div className="flex justify-between items-center mb-2">
-                <span className="text-green-600 dark:text-green-400 font-bold">{lote.price ? (lote.price.startsWith('R$') ? lote.price : `R$ ${lote.price}`) : 'Valor n/d'}</span>
+                <div className="flex flex-col gap-1">
+                     {lote.auction_prices && lote.auction_prices.length > 0 ? (
+                         lote.auction_prices.map((price: any, idx: number) => (
+                            <div key={idx} className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-muted-foreground uppercase">{price.label}:</span>
+                                <span className="text-green-600 dark:text-green-400 font-bold">{price.value}</span>
+                            </div>
+                         ))
+                     ) : (
+                         <span className="text-muted-foreground text-sm">Preços não informados</span>
+                     )}
+                </div>
             </div>
             <div className="text-sm text-muted-foreground grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                 <div className="flex items-center gap-1">

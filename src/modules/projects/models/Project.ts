@@ -17,9 +17,15 @@ export interface Project {
   name: string;
   description: string;
   editalUrl?: string;
-  municipalUrl?: string;
-  price?: string;
-  estimatedPrice?: string;
   createdAt: string;
   lotes?: Lote[];
+  details?: {
+    bankName?: string;
+    auctionDate?: string;
+    auctionLocation?: string;
+    auctioneer?: string;
+    generalRules?: string;
+    editalNumber?: string;
+    [key: string]: any;
+  };
 }
