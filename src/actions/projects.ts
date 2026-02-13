@@ -1,6 +1,6 @@
 'use server'
 
-import { supabase } from "@/lib/supabaseServer";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { Project } from "@/modules/projects/models/Project";
 import { revalidatePath } from "next/cache";
 
@@ -11,15 +11,17 @@ function mapToProject(row: any): Project {
     id: row.id,
     name: row.name,
     description: row.description,
-    editalUrl: row.edital_url,
+    editalUrl: row.file_url, // Changed from edital_url to file_url
     municipalUrl: row.municipal_url,
     price: row.price,
     estimatedPrice: row.estimated_price,
     createdAt: row.created_at,
+    lotes: row.lotes || [],
   };
 }
 
 async function uploadFile(file: File): Promise<string> {
+  const supabase = await createSupabaseServerClient();
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
@@ -40,9 +42,10 @@ async function uploadFile(file: File): Promise<string> {
 }
 
 export async function getProjects(): Promise<Project[]> {
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("projects")
-    .select("*")
+    .select("*, lotes(*)")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -53,9 +56,10 @@ export async function getProjects(): Promise<Project[]> {
 }
 
 export async function getProjectById(id: string): Promise<Project | null> {
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("projects")
-    .select("*")
+    .select("*, lotes(*)")
     .eq("id", id)
     .single();
 
@@ -66,14 +70,45 @@ export async function getProjectById(id: string): Promise<Project | null> {
   return mapToProject(data);
 }
 
+export async function getProjectLotes(projectId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("lotes")
+    .select("*")
+    .eq("project_id", projectId);
+    
+  if (error) {
+    console.error("Error fetching lotes:", error);
+    return [];
+  }
+  return data;
+}
+
+export async function getLoteById(loteId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("lotes")
+    .select("*")
+    .eq("id", loteId)
+    .single();
+
+  if (error) {
+    console.error("Error fetching lote:", error);
+    return null;
+  }
+  return data;
+}
+
 export async function createProjectAction(formData: FormData): Promise<{ success: boolean; data?: Project; error?: string }> {
   try {
+    const supabase = await createSupabaseServerClient();
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
     const price = formData.get("price") as string;
     const estimatedPrice = formData.get("estimatedPrice") as string;
     const editalFile = formData.get("editalFile") as File | null;
     const municipalFile = formData.get("municipalFile") as File | null;
+    const lotesJson = formData.get("lotes") as string;
 
     let editalUrl = "";
     let municipalUrl = "";
@@ -91,7 +126,7 @@ export async function createProjectAction(formData: FormData): Promise<{ success
       .insert({
         name,
         description,
-        edital_url: editalUrl || null,
+        file_url: editalUrl || null,
         municipal_url: municipalUrl || null,
         price: price || null,
         estimated_price: estimatedPrice || null,
@@ -99,6 +134,37 @@ export async function createProjectAction(formData: FormData): Promise<{ success
       .select();
 
     if (error) throw error;
+    
+    // Insert Lotes if present
+    if (lotesJson && data[0]?.id) {
+      try {
+        const lotes = JSON.parse(lotesJson);
+        if (Array.isArray(lotes) && lotes.length > 0) {
+          const lotesToInsert = lotes.map((lote: any) => ({
+            project_id: data[0].id,
+            title: lote.title || `Lote ${lote.id || 'Unknown'}`,
+            description: lote.description || lote.rawContent?.substring(0, 100) || '',
+            price: lote.price,
+            estimated_price: lote.estimatedPrice || lote.valuation,
+            city: lote.city,
+            state: lote.state,
+            auction_prices: lote.auction_prices,
+            details: lote
+          }));
+
+          const { error: lotesError } = await supabase
+            .from("lotes")
+            .insert(lotesToInsert);
+
+          if (lotesError) {
+            console.error("Error inserting lotes:", lotesError);
+            // We don't throw here to avoid failing the project creation, but we log it.
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing lotes JSON:", e);
+      }
+    }
     
     revalidatePath("/portal");
     return { success: true, data: mapToProject(data[0]) };
@@ -108,10 +174,30 @@ export async function createProjectAction(formData: FormData): Promise<{ success
   }
 }
 
+export async function toggleLoteFavorite(loteId: string, isFavorite: boolean): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase
+      .from("lotes")
+      .update({ is_favorite: isFavorite })
+      .eq("id", loteId);
+
+    if (error) throw error;
+
+    revalidatePath("/portal");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error toggling favorite:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function updateProjectAction(id: string, formData: FormData): Promise<{ success: boolean; data?: Project; error?: string }> {
   try {
+    const supabase = await createSupabaseServerClient();
     const editalFile = formData.get("editalFile") as File | null;
     const municipalFile = formData.get("municipalFile") as File | null;
+    const lotesJson = formData.get("lotes") as string;
 
     // Prepare update payload
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,7 +216,7 @@ export async function updateProjectAction(id: string, formData: FormData): Promi
     if (estimatedPrice !== null) updatePayload.estimated_price = estimatedPrice;
 
     if (editalFile && editalFile.size > 0) {
-      updatePayload.edital_url = await uploadFile(editalFile);
+      updatePayload.file_url = await uploadFile(editalFile);
     }
 
     if (municipalFile && municipalFile.size > 0) {
@@ -145,9 +231,61 @@ export async function updateProjectAction(id: string, formData: FormData): Promi
 
     if (error) throw error;
     
+    // Update/Insert Lotes if present
+    if (lotesJson) {
+      try {
+        const lotes = JSON.parse(lotesJson);
+        if (Array.isArray(lotes)) {
+           const existingLotes = await getProjectLotes(id);
+           const existingIds = existingLotes ? existingLotes.map((l: any) => l.id) : [];
+           const newIds = lotes.map((l: any) => l.id).filter((lid: string) => lid && lid.length > 10); 
+           
+           // Delete removed lotes
+           const idsToDelete = existingIds.filter((eid: string) => !newIds.includes(eid));
+           if (idsToDelete.length > 0) {
+               await supabase.from("lotes").delete().in("id", idsToDelete);
+           }
+           
+           // Upsert (Insert or Update)
+           const lotesToUpsert = lotes.map((lote: any) => {
+             const isNew = !lote.id || lote.id.length < 10;
+             const payload: any = {
+                project_id: id,
+                title: lote.title || `Lote ${lote.id || 'Unknown'}`,
+                description: lote.description || lote.rawContent?.substring(0, 100) || '',
+                price: lote.price,
+                estimated_price: lote.estimatedPrice || lote.valuation,
+                city: lote.city,
+                state: lote.state,
+                auction_prices: lote.auction_prices,
+                details: lote
+             };
+             
+             if (!isNew) {
+                 payload.id = lote.id;
+             }
+             return payload;
+           });
+
+           if (lotesToUpsert.length > 0) {
+               const { error: lotesError } = await supabase
+                 .from("lotes")
+                 .upsert(lotesToUpsert);
+                 
+               if (lotesError) console.error("Error upserting lotes:", lotesError);
+           }
+        }
+      } catch (e) {
+        console.error("Error parsing lotes JSON for update:", e);
+      }
+    }
+
     revalidatePath("/portal");
     revalidatePath(`/portal/projects/${id}`);
-    return { success: true, data: mapToProject(data[0]) };
+    
+    // Fetch fresh project with lotes to return
+    const updatedProject = await getProjectById(id);
+    return { success: true, data: updatedProject || mapToProject(data[0]) };
   } catch (error: any) {
     console.error("Error updating project:", error);
     return { success: false, error: error.message };
@@ -156,6 +294,7 @@ export async function updateProjectAction(id: string, formData: FormData): Promi
 
 export async function deleteProjectAction(id: string): Promise<{ success: boolean; error?: string }> {
   try {
+    const supabase = await createSupabaseServerClient();
     const { error } = await supabase.from("projects").delete().eq("id", id);
     if (error) throw error;
     

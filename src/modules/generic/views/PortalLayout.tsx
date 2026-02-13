@@ -7,13 +7,13 @@ interface PortalLayoutProps {
 
 export function PortalLayout({ children }: PortalLayoutProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex h-screen flex-col bg-background overflow-hidden">
       <Header />
       <div className="flex flex-1 overflow-hidden">
-        <aside className="hidden w-64 md:block">
+        <aside className="hidden w-64 md:block border-r bg-muted/40">
           <Sidebar />
         </aside>
-        <main className="flex-1 overflow-y-auto bg-muted/20 p-6">
+        <main className="flex-1 overflow-hidden bg-muted/20">
           {children}
         </main>
       </div>

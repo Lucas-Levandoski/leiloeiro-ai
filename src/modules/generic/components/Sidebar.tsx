@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Plus, Briefcase, FolderOpen } from "lucide-react";
+import { Plus, Briefcase, FolderOpen, ChevronRight, ChevronDown, Star, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 export function Sidebar() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
 
   useEffect(() => {
@@ -43,6 +44,10 @@ export function Sidebar() {
     };
   }, []);
 
+  const toggleProject = (projectId: string) => {
+    setExpandedProjects(prev => ({ ...prev, [projectId]: !prev[projectId] }));
+  };
+
   return (
     <div className="flex h-full w-full flex-col bg-background border-r">
       <div className="flex items-center px-4 py-4">
@@ -65,18 +70,73 @@ export function Sidebar() {
               <p>Nenhum projeto</p>
             </div>
           ) : (
-            projects.map((project) => (
-              <Button
-                key={project.id}
-                asChild
-                variant={pathname === `/portal/projects/${project.id}` ? "secondary" : "ghost"}
-                className="w-full justify-start font-normal truncate"
-              >
-                <Link href={`/portal/projects/${project.id}`}>
-                   {project.name}
-                </Link>
-              </Button>
-            ))
+            projects.map((project) => {
+              const isExpanded = expandedProjects[project.id];
+              const lotes = project.lotes || [];
+              const sortedLotes = [...lotes].sort((a, b) => {
+                  if (a.is_favorite === b.is_favorite) {
+                      return a.title.localeCompare(b.title);
+                  }
+                  return a.is_favorite ? -1 : 1;
+              });
+              const isActive = pathname.startsWith(`/portal/projects/${project.id}`);
+
+              return (
+                <div key={project.id} className="mb-1">
+                  <div className={cn(
+                      "flex items-center gap-1 rounded-md transition-colors",
+                      isActive ? "bg-accent/50" : "hover:bg-accent/20"
+                  )}>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 hover:bg-transparent"
+                        onClick={() => toggleProject(project.id)}
+                    >
+                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      asChild
+                      variant="ghost"
+                      className={cn(
+                          "w-full justify-start font-normal truncate h-9 px-2 hover:bg-transparent",
+                          pathname === `/portal/projects/${project.id}` && "font-medium"
+                      )}
+                    >
+                      <Link href={`/portal/projects/${project.id}`}>
+                        {project.name}
+                      </Link>
+                    </Button>
+                  </div>
+                  
+                  {isExpanded && (
+                    <div className="ml-4 mt-1 space-y-1 border-l pl-2 animate-in slide-in-from-left-2 duration-200">
+                         {sortedLotes.length === 0 ? (
+                             <p className="text-xs text-muted-foreground py-1 px-3">Sem lotes</p>
+                         ) : (
+                             sortedLotes.map(lote => (
+                                 <Button
+                                    key={lote.id}
+                                    asChild
+                                    variant={pathname === `/portal/projects/${project.id}/lotes/${lote.id}` ? "secondary" : "ghost"}
+                                    className="w-full justify-start font-normal truncate h-8 text-sm px-3"
+                                 >
+                                    <Link href={`/portal/projects/${project.id}/lotes/${lote.id}`} className="flex items-center gap-2">
+                                        {lote.is_favorite ? (
+                                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 shrink-0" />
+                                        ) : (
+                                            <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                        )}
+                                        <span className="truncate">{lote.title}</span>
+                                    </Link>
+                                 </Button>
+                             ))
+                         )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </nav>
       </ScrollArea>

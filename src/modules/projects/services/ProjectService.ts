@@ -48,6 +48,7 @@ class ProjectService {
     if (updates.description !== undefined) formData.append("description", updates.description);
     if (updates.price !== undefined) formData.append("price", updates.price);
     if (updates.estimatedPrice !== undefined) formData.append("estimatedPrice", updates.estimatedPrice);
+    if (updates.lotes !== undefined) formData.append("lotes", JSON.stringify(updates.lotes));
 
     if (editalFile) formData.append("editalFile", editalFile);
     if (municipalFile) formData.append("municipalFile", municipalFile);
