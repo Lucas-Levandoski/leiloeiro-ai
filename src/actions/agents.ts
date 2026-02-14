@@ -196,6 +196,32 @@ export async function extractLoteDetails(loteText: string, globalContext?: any) 
     7. Auction Prices (Extract specific prices for "1º Leilão", "2º Leilão", etc. if available)
     8. Full Description (The EXACT RAW TEXT of the description. Do not rewrite, summarize or fix typos. Keep uppercase letters.)
     
+    Also extract these specific optional properties if available:
+    9. Street Name (Logradouro)
+    10. Number
+    11. Complement (Casa X, Apto Y, etc.)
+    12. Neighborhood (Bairro)
+    13. Zip Code (CEP)
+    14. Lot Number (Lote)
+    15. Block (Quadra)
+    16. Condominium Name
+    17. Subdivision Name (Loteamento)
+    18. Parking Spaces (Vagas de garagem)
+    19. Private Area (Área privativa)
+    20. Total Area (Área total)
+    21. Land Area (Área de terreno)
+    22. Ideal Fraction (Fração ideal)
+    23. Registry ID (Matrícula)
+    24. Registry Office (Cartório / RI)
+    25. City Registration ID (Inscrição Municipal / IPTU)
+    26. Occupancy Status (Ocupado/Desocupado)
+    27. Legal Actions (List of legal processes mentioned)
+    28. Risk Analysis (Identify potential risks such as "Ocupado", "Ações Judiciais", "Dívidas", "Problemas na Matrícula", etc. Return a short explanation of why it is risky.)
+    29. Risk Level (Classify the risk level as "high", "medium", or "low".)
+        - "high": Occupied, has active legal actions blocking sale, debts higher than value, or major structural issues.
+        - "medium": Minor debts, registration issues that can be solved, or lack of clear information.
+        - "low": Vacant (Desocupado), clear documents, no major debts.
+
     Construct a "title" for this Lote using the pattern: "Lote {number} - {Type} {City} {State}".
     If the number is not in the text, use a generic identifier.
     
@@ -212,7 +238,28 @@ export async function extractLoteDetails(loteText: string, globalContext?: any) 
       "auction_prices": [
         { "label": "string (e.g. 1º Leilão)", "value": "string (e.g. R$ 100.000,00)" }
       ],
-      "description": "string (The EXACT RAW TEXT from the source)"
+      "description": "string (The EXACT RAW TEXT from the source)",
+      "address_street": "string or null",
+      "address_number": "string or null",
+      "address_complement": "string or null",
+      "address_zip": "string or null",
+      "neighborhood": "string or null",
+      "lot": "string or null",
+      "block": "string or null",
+      "condominium_name": "string or null",
+      "subdivision_name": "string or null",
+      "parking_spaces": "string or null",
+      "area_private": "string or null",
+      "area_total": "string or null",
+      "area_land": "string or null",
+      "ideal_fraction": "string or null",
+      "registry_id": "string or null",
+      "registry_office": "string or null",
+      "city_registration_id": "string or null",
+      "occupancy_status": "string or null",
+      "legal_actions": ["string"],
+      "risk_analysis": "string or null",
+      "risk_level": "high" | "medium" | "low"
     }
 
     Lote Text:
@@ -239,6 +286,139 @@ export async function extractLoteDetails(loteText: string, globalContext?: any) 
   } catch (error) {
     console.error('Error extracting lote details:', error);
     return { success: false, error: 'Failed to extract lote details' };
+  }
+}
+
+// Agent 4: Matricula Extraction
+export async function extractMatriculaData(text: string) {
+  if (!process.env.OPENAI_API_KEY) {
+    return { success: false, error: 'OpenAI API Key is not configured' };
+  }
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
+  const prompt = `
+    You are a legal expert in Brazilian real estate registry documents (Matrículas de Imóveis).
+    Analyze the provided text from a "Matrícula" and extract the following information.
+    
+    For boolean fields (checkboxes), return true if the condition is present/mentioned in the document, false otherwise.
+    For text fields, extract the specific information requested.
+
+    Fields to extract:
+    1. Penhora judicial (Boolean: is there any "Penhora" recorded?)
+    2. Arresto (Boolean: is there any "Arresto" recorded?)
+    3. Usufruto (Boolean: is there any "Usufruto" recorded?)
+    4. Cláusulas restritivas (Boolean: are there any restrictive clauses like "Inalienabilidade", "Impenhorabilidade", "Incomunicabilidade"?)
+    5. Indisponibilidade (Boolean: is there any "Indisponibilidade" recorded?)
+    6. Registro de Alienação Fiduciária (String: List all "Alienação Fiduciária" registrations (e.g., "R-5", "R-10"). If none, return null.)
+    7. Contrato identificado (String: Extract any specific contract number mentioned related to debts/liens. If none, return null.)
+    8. Banco credor identificado (String: Name of the bank/creditor if mentioned in liens/debts. If none, return null.)
+    9. CPF dos devedores (String: List of CPFs of debtors found. If none, return null.)
+    10. Data do 1º leilão (String: Extract date if mentioned in an "Averbação" (AV). If none, return null.)
+    11. Data do 2º leilão (String: Extract date if mentioned in an "Averbação" (AV). If none, return null.)
+    12. Indicação expressa de procedimento extrajudicial (Boolean: Is it explicitly mentioned that the procedure is extrajudicial?)
+
+    Return result strictly as JSON:
+    {
+      "penhora_judicial": boolean,
+      "arresto": boolean,
+      "usufruto": boolean,
+      "clausulas_restritivas": boolean,
+      "indisponibilidade": boolean,
+      "alienacao_fiduciaria": "string or null",
+      "contrato": "string or null",
+      "credor": "string or null",
+      "cpf_devedores": "string or null",
+      "data_primeiro_leilao": "string or null",
+      "data_segundo_leilao": "string or null",
+      "procedimento_extrajudicial": boolean
+    }
+
+    Text content:
+    ${text.substring(0, 50000)}
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "You are a helpful assistant that extracts structured data from legal documents. Respond with valid JSON only." },
+        { role: "user", content: prompt }
+      ],
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) {
+      return { success: false, error: 'No content returned from LLM' };
+    }
+    
+    const data = JSON.parse(content);
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error extracting matricula data:', error);
+    return { success: false, error: 'Failed to extract matricula data' };
+  }
+}
+
+// Agent 5: Risk Analysis
+export async function analyzeRisk(loteDetails: any, matriculaData: any) {
+  if (!process.env.OPENAI_API_KEY) {
+    return { success: false, error: 'OpenAI API Key is not configured' };
+  }
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
+  const prompt = `
+    You are a real estate risk assessment expert.
+    Analyze the risk of acquiring this property based on the Lote Details and the Matricula (Registry) Analysis.
+    
+    Lote Details:
+    ${JSON.stringify(loteDetails, null, 2).substring(0, 10000)}
+    
+    Matricula Analysis:
+    ${JSON.stringify(matriculaData, null, 2)}
+    
+    Task:
+    1. Evaluate the overall risk level (high, medium, low).
+    2. Provide a detailed risk analysis explanation.
+    
+    Risk Criteria:
+    - High Risk: Occupied property (Ocupado), active legal actions (penhora, arresto, indisponibilidade) that are not cleared, large debts, structural issues.
+    - Medium Risk: Minor debts, unclear occupancy, solvable registration issues.
+    - Low Risk: Vacant (Desocupado), clear title, no major debts.
+    
+    Return JSON:
+    {
+        "risk_level": "high" | "medium" | "low",
+        "risk_analysis": "string"
+    }
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "You are a helpful assistant that evaluates real estate risk. Respond with valid JSON only." },
+        { role: "user", content: prompt }
+      ],
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) {
+      return { success: false, error: 'No content returned from LLM' };
+    }
+    
+    const data = JSON.parse(content);
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error analyzing risk:', error);
+    return { success: false, error: 'Failed to analyze risk' };
   }
 }
 

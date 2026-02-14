@@ -18,7 +18,7 @@ function mapToProject(row: any): Project {
   };
 }
 
-async function uploadFile(file: File): Promise<string> {
+export async function uploadFile(file: File): Promise<string> {
   const supabase = await createSupabaseServerClient();
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
@@ -41,9 +41,14 @@ async function uploadFile(file: File): Promise<string> {
 
 export async function getProjects(): Promise<Project[]> {
   const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) return [];
+
   const { data, error } = await supabase
     .from("projects")
     .select("*, lotes(*)")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -100,6 +105,10 @@ export async function getLoteById(loteId: string) {
 export async function createProjectAction(formData: FormData): Promise<{ success: boolean; data?: Project; error?: string }> {
   try {
     const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error("User not authenticated");
+
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
     const editalFile = formData.get("editalFile") as File | null;
@@ -119,6 +128,7 @@ export async function createProjectAction(formData: FormData): Promise<{ success
         description,
         file_url: editalUrl || null,
         details: detailsJson ? JSON.parse(detailsJson) : {},
+        user_id: user.id
       })
       .select();
 
@@ -138,7 +148,8 @@ export async function createProjectAction(formData: FormData): Promise<{ success
             city: lote.city,
             state: lote.state,
             auction_prices: lote.auction_prices,
-            details: lote
+            details: lote,
+            user_id: user.id
           }));
 
           const { error: lotesError } = await supabase
@@ -184,6 +195,10 @@ export async function toggleLoteFavorite(loteId: string, isFavorite: boolean): P
 export async function updateProjectAction(id: string, formData: FormData): Promise<{ success: boolean; data?: Project; error?: string }> {
   try {
     const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error("User not authenticated");
+
     const editalFile = formData.get("editalFile") as File | null;
     const lotesJson = formData.get("lotes") as string;
     const detailsJson = formData.get("details") as string;
@@ -245,7 +260,8 @@ export async function updateProjectAction(id: string, formData: FormData): Promi
                 city: lote.city,
                 state: lote.state,
                 auction_prices: lote.auction_prices,
-                details: lote
+                details: lote,
+                user_id: user.id
              };
              
              if (!isNew) {
@@ -275,6 +291,44 @@ export async function updateProjectAction(id: string, formData: FormData): Promi
     return { success: true, data: updatedProject || mapToProject(data[0]) };
   } catch (error: any) {
     console.error("Error updating project:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateLoteAction(loteId: string, loteData: any): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error("User not authenticated");
+
+    const payload: any = {
+        title: loteData.title || `Lote ${loteData.id || 'Unknown'}`,
+        description: loteData.description || loteData.rawContent || '',
+        price: loteData.price,
+        estimated_price: loteData.estimatedPrice || loteData.valuation,
+        city: loteData.city,
+        state: loteData.state,
+        auction_prices: loteData.auction_prices,
+        details: loteData,
+        // user_id: user.id // Usually not needed for update if RLS handles it or if it's already set
+    };
+
+    const { data, error } = await supabase
+      .from("lotes")
+      .update(payload)
+      .eq("id", loteId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    revalidatePath("/portal");
+    revalidatePath(`/portal/projects/${data.project_id}`);
+    
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Error updating lote:", error);
     return { success: false, error: error.message };
   }
 }

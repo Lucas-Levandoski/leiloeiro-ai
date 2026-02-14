@@ -22,7 +22,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import Link from "next/link"
 import { extractTextFromPDF, extractPropertiesFromText, analyzeEditalStructure, extractLoteDetails } from "@/actions/agents"
-import { Loader2, Sparkles, CheckCircle2, Calendar, MapPin, Gavel, Landmark } from "lucide-react"
+import { Loader2, Sparkles, CheckCircle2, Calendar, MapPin, Gavel, Landmark, ExternalLink } from "lucide-react"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -113,7 +113,9 @@ export function ProjectView({ projectId }: ProjectViewProps) {
   }, [projectId, form, router])
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (loading) return;
     setLoading(true);
+    let shouldStopLoading = true;
     try {
         const formData = new FormData();
         formData.append("name", values.name);
@@ -133,6 +135,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
           }, editalFile || undefined)
           
           if (updated) {
+              window.dispatchEvent(new Event("project-update"));
               if (updated.editalUrl) setCurrentEditalUrl(updated.editalUrl);
               // Update lotes with returned data (containing real UUIDs)
               if (updated.lotes) {
@@ -178,6 +181,8 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                 const result = await createProjectAction(formData);
 
                 if (result.success && result.data) {
+                    window.dispatchEvent(new Event("project-update"));
+                    shouldStopLoading = false;
                     router.push(`/portal/projects/${result.data.id}`);
                 }
             } else {
@@ -188,15 +193,19 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         console.error("Error saving project", error);
         alert("Erro ao salvar o projeto. Verifique o console.");
     } finally {
-        setLoading(false);
+        if (shouldStopLoading) {
+            setLoading(false);
+        }
     }
   }
 
   const handleDelete = async () => {
+     if (loading) return;
      setLoading(true);
      try {
          if (projectId) {
             await projectService.delete(projectId);
+            window.dispatchEvent(new Event("project-update"));
             router.push("/portal");
          }
      } catch (error) {
@@ -509,7 +518,19 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                                         <MapPin className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-1" />
                                         <div>
                                             <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Local / Site</p>
-                                            <p className="text-base text-indigo-700 dark:text-indigo-300">{globalInfo.auctionLocation}</p>
+                                            {globalInfo.auctionLocation.match(/^(https?:\/\/|www\.)|(\.com|\.br|\.net|\.org)/i) ? (
+                                                <a 
+                                                    href={globalInfo.auctionLocation.startsWith('http') ? globalInfo.auctionLocation : `https://${globalInfo.auctionLocation}`} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="text-base text-indigo-700 dark:text-indigo-300 hover:underline flex items-center gap-1"
+                                                >
+                                                    <span className="truncate">{globalInfo.auctionLocation}</span>
+                                                    <ExternalLink className="h-4 w-4 shrink-0 opacity-50" />
+                                                </a>
+                                            ) : (
+                                                <p className="text-base text-indigo-700 dark:text-indigo-300">{globalInfo.auctionLocation}</p>
+                                            )}
                                         </div>
                                     </div>
                                 )}

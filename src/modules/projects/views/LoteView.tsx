@@ -2,13 +2,21 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getLoteById, toggleLoteFavorite } from "@/actions/projects";
+import { getLoteById, toggleLoteFavorite, updateLoteAction } from "@/actions/projects";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Building2, MapPin, DollarSign, FileText, Star, Gavel, Calendar, ExternalLink } from "lucide-react";
+import { Loader2, ArrowLeft, Building2, MapPin, DollarSign, FileText, Star, Gavel, Calendar, ExternalLink, Landmark, Sparkles, Edit, Save, X, AlertTriangle } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { BankLogo } from "@/components/BankLogo";
+    import { BankLogo } from "@/components/BankLogo";
+import { extractLoteDetails, extractMatriculaData, extractTextFromPDF, analyzeRisk } from "@/actions/agents";
+import { MatriculaCard } from "@/modules/projects/components/MatriculaCard";
+import { uploadFile } from "@/actions/projects";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Check, Upload, FileText as FileTextIcon, RefreshCw, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
 
 interface LoteViewProps {
   loteId: string;
@@ -20,6 +28,15 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [descriptionValue, setDescriptionValue] = useState("");
+  const [isSavingDescription, setIsSavingDescription] = useState(false);
+  
+  // Matricula state
+  const [matriculaFile, setMatriculaFile] = useState<File | null>(null);
+  const [matriculaLoading, setMatriculaLoading] = useState(false);
+  const [isMatriculaExpanded, setIsMatriculaExpanded] = useState(false);
 
   useEffect(() => {
     if (!loteId || loteId === 'undefined') {
@@ -32,6 +49,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
         const data = await getLoteById(loteId);
         setLote(data);
         setIsFavorite(data?.is_favorite || false);
+        setDescriptionValue(data?.description || data?.details?.rawContent || "");
       } catch (error) {
         console.error("Error fetching lote:", error);
       } finally {
@@ -40,6 +58,48 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
     };
     fetchLote();
   }, [loteId]);
+
+  const handleSaveDescription = async () => {
+    if (!lote) return;
+    
+    setIsSavingDescription(true);
+    try {
+        const updatedDetails = {
+            ...lote.details,
+            description: descriptionValue,
+            rawContent: descriptionValue // Also update rawContent as it's used as fallback
+        };
+        
+        // We need to pass the full object structure expected by updateLoteAction
+        // The action expects an object that will be used to update both columns and details JSON
+        const updatePayload = {
+            ...updatedDetails,
+            id: lote.id,
+            title: lote.title, // Preserve title
+            // Add other fields if necessary to preserve them in top-level columns
+        };
+
+        const result = await updateLoteAction(lote.id, updatePayload);
+        
+        if (result.success) {
+            setLote({
+                ...lote,
+                description: descriptionValue,
+                details: updatedDetails
+            });
+            setIsEditingDescription(false);
+            toast.success("Descrição atualizada com sucesso!");
+            window.dispatchEvent(new Event("project-update"));
+        } else {
+            throw new Error(result.error || "Erro ao salvar descrição");
+        }
+    } catch (error: any) {
+        console.error("Error saving description:", error);
+        toast.error(error.message || "Erro ao salvar descrição");
+    } finally {
+        setIsSavingDescription(false);
+    }
+  };
 
   const handleToggleFavorite = async () => {
     setFavoriteLoading(true);
@@ -60,6 +120,145 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
     } finally {
         setFavoriteLoading(false);
     }
+  };
+
+  const handleAiReanalysis = async () => {
+    if (!lote || !lote.details?.rawContent) {
+        toast.error("Conteúdo original não disponível para reanálise");
+        return;
+    }
+
+    setAiLoading(true);
+    try {
+        const result = await extractLoteDetails(lote.details.rawContent, lote.projects?.details);
+        
+        if (result.success && result.data) {
+            const updatedData = {
+                ...lote.details, // Keep existing fields just in case
+                ...result.data,
+                id: lote.id,
+                rawContent: lote.details.rawContent // Ensure raw content is preserved
+            };
+
+            // Save to database
+            const saveResult = await updateLoteAction(lote.id, updatedData);
+            
+            if (saveResult.success) {
+                setLote({
+                    ...lote,
+                    ...updatedData, // Update local state fields like city, state, etc.
+                    details: updatedData
+                });
+                toast.success("Análise atualizada com sucesso!");
+                window.dispatchEvent(new Event("project-update"));
+            } else {
+                throw new Error(saveResult.error || "Erro ao salvar atualização");
+            }
+        } else {
+            throw new Error(result.error || "Falha na análise da IA");
+        }
+    } catch (error: any) {
+        console.error("Error re-analyzing lote:", error);
+        toast.error(error.message || "Erro ao reanalisar o lote");
+    } finally {
+        setAiLoading(false);
+    }
+  };
+
+  const handleMatriculaProcess = async () => {
+    if (!matriculaFile || !lote) return;
+    setMatriculaLoading(true);
+    try {
+        // 1. Upload file
+        const fileUrl = await uploadFile(matriculaFile);
+
+        // 2. Extract text
+        const formData = new FormData();
+        formData.append('file', matriculaFile);
+        const textResult = await extractTextFromPDF(formData);
+
+        if (!textResult.success || !textResult.text) {
+            throw new Error(textResult.error || "Erro ao extrair texto do PDF");
+        }
+
+        // 3. Extract data
+        const dataResult = await extractMatriculaData(textResult.text);
+        if (!dataResult.success || !dataResult.data) {
+            throw new Error(dataResult.error || "Erro ao analisar dados da matrícula");
+        }
+
+        // 4. Analyze Risk (New Step)
+        const riskResult = await analyzeRisk(lote.details, dataResult.data);
+        const riskData = riskResult.success ? riskResult.data : {};
+
+        // 5. Update lote
+        const updatedDetails = {
+            ...lote.details,
+            matricula_url: fileUrl,
+            matricula_data: dataResult.data,
+            // Update risk fields
+            risk_level: riskData.risk_level || lote.details.risk_level,
+            risk_analysis: riskData.risk_analysis || lote.details.risk_analysis,
+            is_risky: riskData.risk_level === 'high'
+        };
+
+        const updatePayload = {
+             ...updatedDetails,
+             id: lote.id,
+             title: lote.title
+        };
+
+        const result = await updateLoteAction(lote.id, updatePayload);
+        
+        if (result.success) {
+            setLote({
+                ...lote,
+                details: updatedDetails
+            });
+            toast.success("Matrícula processada e risco reavaliado!");
+            setIsMatriculaExpanded(true);
+        } else {
+            throw new Error(result.error || "Erro ao salvar dados da matrícula");
+        }
+
+    } catch (error: any) {
+        console.error("Error processing matricula:", error);
+        toast.error(error.message || "Erro ao processar matrícula");
+    } finally {
+        setMatriculaLoading(false);
+    }
+  };
+
+  const handleRemoveMatricula = async () => {
+      if (!lote) return;
+      if (!confirm("Tem certeza que deseja remover os dados da matrícula?")) return;
+
+      try {
+          const updatedDetails = {
+              ...lote.details,
+              matricula_url: null,
+              matricula_data: null
+          };
+
+          const updatePayload = {
+              ...updatedDetails,
+              id: lote.id,
+              title: lote.title
+          };
+
+          const result = await updateLoteAction(lote.id, updatePayload);
+          
+          if (result.success) {
+              setLote({
+                  ...lote,
+                  details: updatedDetails
+              });
+              setMatriculaFile(null);
+              toast.success("Dados da matrícula removidos");
+          }
+      } catch (error) {
+          toast.error("Erro ao remover dados");
+      }
   };
 
   if (loading) {
@@ -159,6 +358,47 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
             </Card>
         )}
 
+        {/* Risk Assessment Alert */}
+        {(lote.details?.risk_level || lote.details?.is_risky || lote.details?.risk_analysis) && (
+            <Alert 
+                variant={
+                    lote.details?.risk_level === "high" || lote.details?.is_risky === true ? "destructive" : 
+                    lote.details?.risk_level === "medium" ? "default" : 
+                    "default"
+                } 
+                className={
+                    lote.details?.risk_level === "high" || lote.details?.is_risky === true ? "border-red-500/50 bg-red-50 dark:bg-red-900/10 text-red-900 dark:text-red-200" :
+                    lote.details?.risk_level === "medium" ? "bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-800 text-yellow-900 dark:text-yellow-200" :
+                    lote.details?.risk_level === "low" ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800 text-green-900 dark:text-green-200" :
+                    "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                }
+            >
+                <AlertTriangle className={
+                    lote.details?.risk_level === "high" || lote.details?.is_risky === true ? "text-red-900 dark:text-red-200" :
+                    lote.details?.risk_level === "medium" ? "text-yellow-900 dark:text-yellow-200" :
+                    lote.details?.risk_level === "low" ? "text-green-900 dark:text-green-200" :
+                    "text-gray-900 dark:text-gray-200"
+                } />
+                <AlertTitle className="flex items-center gap-2">
+                    Análise de Risco
+                    {lote.details?.risk_level && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full uppercase font-bold tracking-wider ${
+                            lote.details.risk_level === "high" ? "bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-100" :
+                            lote.details.risk_level === "medium" ? "bg-yellow-200 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" :
+                            "bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-100"
+                        }`}>
+                            {lote.details.risk_level === "high" ? "Alto Risco" : 
+                             lote.details.risk_level === "medium" ? "Médio Risco" : 
+                             "Baixo Risco"}
+                        </span>
+                    )}
+                </AlertTitle>
+                <AlertDescription className="mt-2">
+                    {lote.details?.risk_analysis || "Este lote apresenta características que podem indicar riscos. Verifique as informações detalhadamente."}
+                </AlertDescription>
+            </Alert>
+        )}
+
         <Card>
             <CardHeader>
             <div className="flex items-start justify-between">
@@ -173,6 +413,20 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                             className="text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
                         >
                             <Star className={`h-6 w-6 ${isFavorite ? "fill-current" : ""}`} />
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleAiReanalysis}
+                            disabled={aiLoading}
+                            className="ml-2 gap-2 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                        >
+                            {aiLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Sparkles className="h-4 w-4" />
+                            )}
+                            Reanalisar com IA
                         </Button>
                     </div>
                     <CardDescription className="flex items-center gap-2 mt-2">
@@ -206,18 +460,47 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                     </div>
                 </div>
 
+                {lote.details?.legal_actions && lote.details.legal_actions.length > 0 && (
+                        <div className="space-y-4">
+                        <h3 className="font-semibold text-foreground flex items-center gap-2 text-red-600 dark:text-red-400">
+                            <Gavel className="h-4 w-4" /> Ações Judiciais
+                        </h3>
+                        <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-md border border-red-100 dark:border-red-900 text-sm text-red-800 dark:text-red-300">
+                            <ul className="list-disc pl-5 space-y-1">
+                                {lote.details.legal_actions.map((action: string, idx: number) => (
+                                    <li key={idx}>{action}</li>
+                                ))}
+                            </ul>
+                        </div>
+                        </div>
+                )}
+                
                 <Separator />
 
                 {/* Details Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                         <h3 className="font-semibold text-foreground flex items-center gap-2">
-                            <MapPin className="h-4 w-4" /> Localização
+                            <MapPin className="h-4 w-4" /> Localização Detalhada
                         </h3>
-                        <div className="space-y-2 text-muted-foreground">
-                            <p><span className="font-medium text-foreground">Cidade:</span> {lote.city || "-"}</p>
-                            <p><span className="font-medium text-foreground">Estado:</span> {lote.state || "-"}</p>
-                            <p><span className="font-medium text-foreground">Endereço:</span> {lote.details?.address || "-"}</p>
+                        <div className="space-y-2 text-muted-foreground text-sm">
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><span className="font-medium text-foreground block">Logradouro:</span> {lote.details?.address_street || "-"}</div>
+                                <div><span className="font-medium text-foreground block">Número:</span> {lote.details?.address_number || "-"}</div>
+                            </div>
+                            <div><span className="font-medium text-foreground block">Complemento:</span> {lote.details?.address_complement || "-"}</div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><span className="font-medium text-foreground block">Bairro:</span> {lote.details?.neighborhood || "-"}</div>
+                                <div><span className="font-medium text-foreground block">CEP:</span> {lote.details?.address_zip || "-"}</div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><span className="font-medium text-foreground block">Cidade:</span> {lote.city || "-"}</div>
+                                <div><span className="font-medium text-foreground block">Estado:</span> {lote.state || "-"}</div>
+                            </div>
+                            <div className="pt-2 border-t mt-2">
+                                <span className="font-medium text-foreground block mb-1">Endereço Completo:</span> 
+                                {lote.details?.address || "-"}
+                            </div>
                         </div>
                     </div>
 
@@ -225,34 +508,122 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                         <h3 className="font-semibold text-foreground flex items-center gap-2">
                             <Building2 className="h-4 w-4" /> Detalhes do Imóvel
                         </h3>
-                        <div className="space-y-2 text-muted-foreground">
-                            <p><span className="font-medium text-foreground">Tipo:</span> {lote.details?.type || "-"}</p>
-                            <p><span className="font-medium text-foreground">Área/Tamanho:</span> {lote.details?.size || "-"}</p>
+                        <div className="space-y-2 text-muted-foreground text-sm">
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><span className="font-medium text-foreground block">Tipo:</span> {lote.details?.type || "-"}</div>
+                                <div><span className="font-medium text-foreground block">Ocupação:</span> {lote.details?.occupancy_status || "-"}</div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><span className="font-medium text-foreground block">Lote:</span> {lote.details?.lot || "-"}</div>
+                                <div><span className="font-medium text-foreground block">Quadra:</span> {lote.details?.block || "-"}</div>
+                            </div>
+                            <div><span className="font-medium text-foreground block">Condomínio:</span> {lote.details?.condominium_name || "-"}</div>
+                            <div><span className="font-medium text-foreground block">Loteamento:</span> {lote.details?.subdivision_name || "-"}</div>
+                             <div><span className="font-medium text-foreground block">Vagas de Garagem:</span> {lote.details?.parking_spaces || "-"}</div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h3 className="font-semibold text-foreground flex items-center gap-2">
+                            <Landmark className="h-4 w-4" /> Dados Registrais
+                        </h3>
+                        <div className="space-y-2 text-muted-foreground text-sm">
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><span className="font-medium text-foreground block">Matrícula:</span> {lote.details?.registry_id || "-"}</div>
+                                <div><span className="font-medium text-foreground block">Cartório:</span> {lote.details?.registry_office || "-"}</div>
+                            </div>
+                            <div><span className="font-medium text-foreground block">Inscrição Municipal:</span> {lote.details?.city_registration_id || "-"}</div>
+                            <div><span className="font-medium text-foreground block">Fração Ideal:</span> {lote.details?.ideal_fraction || "-"}</div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h3 className="font-semibold text-foreground flex items-center gap-2">
+                            <ExternalLink className="h-4 w-4" /> Áreas
+                        </h3>
+                         <div className="space-y-2 text-muted-foreground text-sm">
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><span className="font-medium text-foreground block">Área Privativa:</span> {lote.details?.area_private || "-"}</div>
+                                <div><span className="font-medium text-foreground block">Área Total:</span> {lote.details?.area_total || "-"}</div>
+                            </div>
+                            <div><span className="font-medium text-foreground block">Área Terreno:</span> {lote.details?.area_land || "-"}</div>
+                            <div><span className="font-medium text-foreground block">Área (Genérica):</span> {lote.details?.size || "-"}</div>
                         </div>
                     </div>
                 </div>
 
                 <Separator />
 
+                {/* Matricula Section */}
+                <MatriculaCard 
+                    lote={lote}
+                    file={matriculaFile}
+                    setFile={setMatriculaFile}
+                    loading={matriculaLoading}
+                    onProcess={handleMatriculaProcess}
+                    onRemove={handleRemoveMatricula}
+                    isExpanded={isMatriculaExpanded}
+                    setIsExpanded={setIsMatriculaExpanded}
+                />
+
+                <Separator />
+
                 {/* Full Description */}
                 <div className="space-y-4">
-                    <h3 className="font-semibold text-foreground flex items-center gap-2">
-                        <FileText className="h-4 w-4" /> Descrição Completa
-                    </h3>
-                    <div className="bg-gray-50 dark:bg-muted/50 p-4 rounded-md border text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                        {lote.description || lote.details?.rawContent || "Sem descrição disponível."}
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-foreground flex items-center gap-2">
+                            <FileText className="h-4 w-4" /> Descrição Completa
+                        </h3>
+                        {!isEditingDescription ? (
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => setIsEditingDescription(true)}
+                                className="h-8 text-muted-foreground hover:text-foreground"
+                            >
+                                <Edit className="h-4 w-4 mr-2" /> Editar
+                            </Button>
+                        ) : (
+                            <div className="flex gap-2">
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => {
+                                        setIsEditingDescription(false);
+                                        setDescriptionValue(lote.description || lote.details?.rawContent || "");
+                                    }}
+                                    disabled={isSavingDescription}
+                                    className="h-8"
+                                >
+                                    <X className="h-4 w-4 mr-2" /> Cancelar
+                                </Button>
+                                <Button 
+                                    size="sm" 
+                                    onClick={handleSaveDescription}
+                                    disabled={isSavingDescription}
+                                    className="h-8"
+                                >
+                                    {isSavingDescription ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                                    Salvar
+                                </Button>
+                            </div>
+                        )}
                     </div>
+
+                    {isEditingDescription ? (
+                        <Textarea 
+                            value={descriptionValue} 
+                            onChange={(e) => setDescriptionValue(e.target.value)}
+                            className="min-h-[300px] font-mono text-sm"
+                            placeholder="Digite a descrição do lote..."
+                        />
+                    ) : (
+                        <div className="bg-gray-50 dark:bg-muted/50 p-4 rounded-md border text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                            {lote.description || lote.details?.rawContent || "Sem descrição disponível."}
+                        </div>
+                    )}
                 </div>
 
-                {/* Raw JSON Details (Debug/Advanced) */}
-                {lote.details && (
-                    <div className="mt-8">
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Dados Brutos (JSON)</h4>
-                        <pre className="bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-300 p-4 rounded-md text-xs overflow-x-auto border border-slate-200 dark:border-slate-800">
-                            {JSON.stringify(lote.details, null, 2)}
-                        </pre>
-                    </div>
-                )}
             </CardContent>
         </Card>
         </div>
