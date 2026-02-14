@@ -119,7 +119,7 @@ export async function analyzeEditalStructure(text: string) {
     Your task is to analyze the provided text and:
     1. Identify Global Information: 
        - Bank/Seller Name (e.g., Caixa, Banco do Brasil, Santander, Justice Court, etc.)
-       - Auction Dates & Times (1st Auction, 2nd Auction dates)
+       - Auction Dates & Times (1st Auction, 2nd Auction dates) -> MUST be an array of strings, e.g. ["1º Leilão: 10/10/2023 às 10h", "2º Leilão: 20/10/2023 às 10h"]
        - Auction Location/Website (Where it will happen)
        - Auctioneer Name
        - Edital Number
@@ -131,7 +131,7 @@ export async function analyzeEditalStructure(text: string) {
     {
       "globalInfo": {
         "bankName": "string",
-        "auctionDate": "string (summary of dates/times)",
+        "auctionDate": ["string", "string"],
         "auctionLocation": "string (URL or address)",
         "auctioneer": "string",
         "generalRules": "string (summary)",

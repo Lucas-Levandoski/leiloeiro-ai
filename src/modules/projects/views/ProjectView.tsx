@@ -48,6 +48,7 @@ interface ProjectViewProps {
 }
 
 import { LoteCard } from "../components/LoteCard"
+import { BankLogo } from "@/components/BankLogo"
 
 export function ProjectView({ projectId }: ProjectViewProps) {
   const router = useRouter()
@@ -264,6 +265,24 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         }
 
         const { globalInfo: gInfo, lotes: rawLotes } = structureResult.data;
+        
+        // Ensure auctionDate is an array
+        if (gInfo && gInfo.auctionDate) {
+            if (!Array.isArray(gInfo.auctionDate)) {
+                // Try to split if it looks like a list
+                if (typeof gInfo.auctionDate === 'string') {
+                    if (gInfo.auctionDate.includes('\n')) {
+                        gInfo.auctionDate = gInfo.auctionDate.split('\n').filter((d: string) => d.trim().length > 0);
+                    } else {
+                        gInfo.auctionDate = [gInfo.auctionDate];
+                    }
+                } else {
+                    // Fallback
+                    gInfo.auctionDate = [String(gInfo.auctionDate)];
+                }
+            }
+        }
+
         setGlobalInfo(gInfo);
         
         // Optional: Pre-fill description with general rules
@@ -460,7 +479,9 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {globalInfo.bankName && (
                                     <div className="flex items-start gap-3">
-                                        <Landmark className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-1" />
+                                        <div className="mt-1">
+                                            <BankLogo bankName={globalInfo.bankName} size="md" />
+                                        </div>
                                         <div>
                                             <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Banco / Comitente</p>
                                             <p className="text-base text-indigo-700 dark:text-indigo-300">{globalInfo.bankName}</p>
@@ -472,7 +493,14 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                                         <Calendar className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-1" />
                                         <div>
                                             <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Datas e Horários</p>
-                                            <p className="text-base text-indigo-700 dark:text-indigo-300 whitespace-pre-wrap">{globalInfo.auctionDate}</p>
+                                            <div className="flex flex-col gap-1 mt-1">
+                                                {globalInfo.auctionDate.map((date: string, idx: number) => (
+                                                    <div key={idx} className="flex items-start gap-2">
+                                                        <span className="text-indigo-400 dark:text-indigo-500">•</span>
+                                                        <span className="text-base text-indigo-700 dark:text-indigo-300">{date}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                 )}

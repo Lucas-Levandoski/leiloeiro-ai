@@ -86,7 +86,7 @@ export async function getLoteById(loteId: string) {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("lotes")
-    .select("*")
+    .select("*, projects(*)")
     .eq("id", loteId)
     .single();
 

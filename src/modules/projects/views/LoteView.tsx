@@ -5,9 +5,10 @@ import Link from "next/link";
 import { getLoteById, toggleLoteFavorite } from "@/actions/projects";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Building2, MapPin, DollarSign, FileText, Star } from "lucide-react";
+import { Loader2, ArrowLeft, Building2, MapPin, DollarSign, FileText, Star, Gavel, Calendar, ExternalLink } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { BankLogo } from "@/components/BankLogo";
 
 interface LoteViewProps {
   loteId: string;
@@ -94,6 +95,70 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
 
       <div className="flex-1 overflow-y-auto p-6 pt-0">
         <div className="max-w-4xl mx-auto space-y-6 pb-10">
+
+        {/* Auction Info Card */}
+        {lote.projects?.details && (
+            <Card className="border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
+                <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-6 p-6">
+                    {lote.projects.details.bankName && (
+                        <div className="flex-shrink-0 bg-white dark:bg-slate-950 p-3 rounded-lg border border-indigo-100 dark:border-indigo-900 shadow-sm">
+                            <BankLogo bankName={lote.projects.details.bankName} size="lg" />
+                        </div>
+                    )}
+                    <div className="space-y-3 flex-1">
+                        <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-semibold text-lg">
+                            <Gavel className="h-5 w-5" />
+                            <span>Informações do Leilão</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                             {lote.projects.details.auctionDate && (
+                                <div className="md:col-span-2 bg-white/50 dark:bg-indigo-950/30 rounded-lg border border-indigo-100 dark:border-indigo-800 p-4">
+                                    <div className="flex items-center gap-2 mb-3 text-indigo-800 dark:text-indigo-200">
+                                        <Calendar className="h-5 w-5" />
+                                        <span className="font-semibold">Cronograma do Leilão</span>
+                                    </div>
+                                    <div className="text-sm text-indigo-700 dark:text-indigo-300 whitespace-pre-line leading-relaxed pl-1">
+                                      <div className="flex flex-col gap-1">
+                                          {lote.projects.details.auctionDate.map((date: string, idx: number) => (
+                                              <div key={idx} className="flex items-start gap-2">
+                                                  <span className="text-indigo-400 dark:text-indigo-500">•</span>
+                                                  <span>{date}</span>
+                                              </div>
+                                          ))}
+                                      </div>
+                                     </div>
+                                </div>
+                             )}
+                             {lote.projects.details.auctionLocation && (
+                                <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
+                                    <MapPin className="h-4 w-4 shrink-0" />
+                                    {lote.projects.details.auctionLocation.match(/^(https?:\/\/|www\.)|(\.com|\.br|\.net|\.org)/i) ? (
+                                        <a 
+                                            href={lote.projects.details.auctionLocation.startsWith('http') ? lote.projects.details.auctionLocation : `https://${lote.projects.details.auctionLocation}`} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="truncate hover:underline flex items-center gap-1"
+                                        >
+                                            <span className="truncate">{lote.projects.details.auctionLocation}</span>
+                                            <ExternalLink className="h-3 w-3 shrink-0 opacity-50" />
+                                        </a>
+                                    ) : (
+                                        <span className="truncate">{lote.projects.details.auctionLocation}</span>
+                                    )}
+                                </div>
+                             )}
+                             {lote.projects.details.auctioneer && (
+                                <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 md:col-span-2">
+                                    <span className="font-medium">Leiloeiro:</span>
+                                    <span>{lote.projects.details.auctioneer}</span>
+                                </div>
+                             )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        )}
+
         <Card>
             <CardHeader>
             <div className="flex items-start justify-between">

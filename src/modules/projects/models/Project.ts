@@ -10,6 +10,7 @@ export interface Lote {
   details?: any;
   created_at?: string;
   is_favorite?: boolean;
+  projects?: Project;
 }
 
 export interface Project {
@@ -21,7 +22,7 @@ export interface Project {
   lotes?: Lote[];
   details?: {
     bankName?: string;
-    auctionDate?: string;
+    auctionDate?: string[];
     auctionLocation?: string;
     auctioneer?: string;
     generalRules?: string;

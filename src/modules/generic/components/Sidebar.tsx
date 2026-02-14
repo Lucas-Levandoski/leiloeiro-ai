@@ -11,6 +11,7 @@ import { Project } from "@/modules/projects/models/Project";
 import { projectService } from "@/modules/projects/services/ProjectService";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { BankLogo } from "@/components/BankLogo";
 
 export function Sidebar() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -103,8 +104,9 @@ export function Sidebar() {
                           pathname === `/portal/projects/${project.id}` && "font-medium"
                       )}
                     >
-                      <Link href={`/portal/projects/${project.id}`}>
-                        {project.name}
+                      <Link href={`/portal/projects/${project.id}`} className="flex items-center gap-2 w-full">
+                        <BankLogo bankName={project.details?.bankName} size="sm" />
+                        <span className="truncate">{project.name}</span>
                       </Link>
                     </Button>
                   </div>
