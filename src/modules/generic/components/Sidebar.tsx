@@ -13,7 +13,12 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { BankLogo } from "@/components/BankLogo";
 
-export function Sidebar() {
+interface SidebarProps {
+  className?: string;
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ className, onNavigate }: SidebarProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
@@ -50,7 +55,7 @@ export function Sidebar() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-background border-r">
+    <div className={cn("flex h-full w-full flex-col bg-background border-r", className)}>
       <div className="flex items-center px-4 py-4">
         <Briefcase className="mr-2 h-6 w-6" />
         <span className="font-semibold text-lg tracking-tight">Oportunidades</span>
@@ -104,7 +109,11 @@ export function Sidebar() {
                           pathname === `/portal/projects/${project.id}` && "font-medium"
                       )}
                     >
-                      <Link href={`/portal/projects/${project.id}`} className="flex items-center gap-2 w-full">
+                      <Link 
+                        href={`/portal/projects/${project.id}`} 
+                        className="flex items-center gap-2 w-full"
+                        onClick={onNavigate}
+                      >
                         <BankLogo bankName={project.details?.bankName} size="sm" />
                         <span className="truncate">{project.name}</span>
                       </Link>
@@ -118,20 +127,24 @@ export function Sidebar() {
                          ) : (
                              sortedLotes.map(lote => (
                                  <Button
-                                    key={lote.id}
-                                    asChild
-                                    variant={pathname === `/portal/projects/${project.id}/lotes/${lote.id}` ? "secondary" : "ghost"}
-                                    className="w-full justify-start font-normal truncate h-8 text-sm px-3"
-                                 >
-                                    <Link href={`/portal/projects/${project.id}/lotes/${lote.id}`} className="flex items-center gap-2">
-                                        {lote.is_favorite ? (
-                                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 shrink-0" />
-                                        ) : (
-                                            <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                        )}
-                                        <span className="truncate">{lote.title}</span>
-                                    </Link>
-                                 </Button>
+                                   key={lote.id}
+                                   asChild
+                                   variant={pathname === `/portal/projects/${project.id}/lotes/${lote.id}` ? "secondary" : "ghost"}
+                                   className="w-full justify-start font-normal truncate h-8 text-sm px-3"
+                                >
+                                   <Link 
+                                    href={`/portal/projects/${project.id}/lotes/${lote.id}`} 
+                                    className="flex items-center gap-2"
+                                    onClick={onNavigate}
+                                   >
+                                       {lote.is_favorite ? (
+                                           <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 shrink-0" />
+                                       ) : (
+                                           <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                       )}
+                                       <span className="truncate">{lote.title}</span>
+                                   </Link>
+                                </Button>
                              ))
                          )}
                     </div>
@@ -145,7 +158,7 @@ export function Sidebar() {
 
       <div className="p-4 border-t bg-background">
         <Button asChild className="w-full">
-          <Link href="/portal/projects/new">
+          <Link href="/portal/projects/new" onClick={onNavigate}>
             <Plus className="mr-2 h-4 w-4" /> Novo Projeto
           </Link>
         </Button>

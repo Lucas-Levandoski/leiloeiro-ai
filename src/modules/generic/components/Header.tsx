@@ -1,6 +1,7 @@
 import { UserCircle, LogOut, Settings, User } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MobileNav } from "./MobileNav";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,7 @@ export async function Header() {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-6">
       <div className="flex items-center gap-4">
+        <MobileNav />
         <Link href="/portal" className="text-xl font-bold tracking-tight">
           Portal Leiloeiro
         </Link>

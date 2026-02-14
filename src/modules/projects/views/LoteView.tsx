@@ -11,6 +11,7 @@ import { toast } from "sonner";
     import { BankLogo } from "@/components/BankLogo";
 import { extractLoteDetails, extractMatriculaData, extractTextFromPDF, analyzeRisk } from "@/actions/agents";
 import { MatriculaCard } from "@/modules/projects/components/MatriculaCard";
+import { FinancialCalculator } from "@/modules/projects/components/FinancialCalculator";
 import { uploadFile } from "@/actions/projects";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -226,6 +227,29 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
         toast.error(error.message || "Erro ao processar matrícula");
     } finally {
         setMatriculaLoading(false);
+    }
+  };
+
+  const handleFinancialSave = async (updatedDetails: any) => {
+    if (!lote) return;
+    
+    // Create the update payload matching the structure expected by updateLoteAction
+    const updatePayload = {
+        ...updatedDetails,
+        id: lote.id,
+        title: lote.title,
+    };
+
+    const result = await updateLoteAction(lote.id, updatePayload);
+    
+    if (result.success) {
+        setLote({
+            ...lote,
+            details: updatedDetails
+        });
+        window.dispatchEvent(new Event("project-update"));
+    } else {
+        throw new Error(result.error || "Erro ao salvar informações financeiras");
     }
   };
 
@@ -564,6 +588,15 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                     onRemove={handleRemoveMatricula}
                     isExpanded={isMatriculaExpanded}
                     setIsExpanded={setIsMatriculaExpanded}
+                />
+
+                <Separator />
+
+                {/* Financial Section */}
+                <FinancialCalculator 
+                    details={lote.details}
+                    auctionPrices={lote.auction_prices}
+                    onSave={handleFinancialSave}
                 />
 
                 <Separator />
