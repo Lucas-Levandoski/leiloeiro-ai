@@ -9,9 +9,10 @@ import { Loader2, ArrowLeft, Building2, MapPin, DollarSign, FileText, Star, Gave
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
     import { BankLogo } from "@/components/BankLogo";
-import { extractLoteDetails, extractMatriculaData, extractTextFromPDF, analyzeRisk } from "@/actions/agents";
+import { extractLoteDetails, extractMatriculaData, extractTextFromPDF, analyzeRisk, compareLoteData } from "@/actions/agents";
 import { MatriculaCard } from "@/modules/projects/components/MatriculaCard";
 import { FinancialCalculator } from "@/modules/projects/components/FinancialCalculator";
+import { MarketAnalysisSection } from "@/modules/projects/components/MarketAnalysis/MarketAnalysisSection";
 import { uploadFile } from "@/actions/projects";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -192,7 +193,11 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
         const riskResult = await analyzeRisk(lote.details, dataResult.data);
         const riskData = riskResult.success ? riskResult.data : {};
 
-        // 5. Update lote
+        // 5. Compare Data (New Step)
+        const comparisonResult = await compareLoteData(lote.details, dataResult.data);
+        const discrepancies = comparisonResult.success ? comparisonResult.data : [];
+
+        // 6. Update lote
         const updatedDetails = {
             ...lote.details,
             matricula_url: fileUrl,
@@ -200,7 +205,8 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
             // Update risk fields
             risk_level: riskData.risk_level || lote.details.risk_level,
             risk_analysis: riskData.risk_analysis || lote.details.risk_analysis,
-            is_risky: riskData.risk_level === 'high'
+            is_risky: riskData.risk_level === 'high',
+            discrepancies: discrepancies
         };
 
         const updatePayload = {
@@ -423,6 +429,44 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
             </Alert>
         )}
 
+        {/* Data Discrepancy Alert */}
+        {lote.details?.discrepancies && lote.details.discrepancies.length > 0 && (
+            <Alert 
+                variant="destructive"
+                className="bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-200"
+            >
+                <AlertCircle className="h-5 w-5 text-orange-900 dark:text-orange-200" />
+                <AlertTitle className="flex items-center gap-2">
+                    Discrepâncias Encontradas
+                    <span className="text-xs px-2 py-0.5 rounded-full uppercase font-bold tracking-wider bg-orange-200 text-orange-800 dark:bg-orange-900 dark:text-orange-100">
+                        Atenção
+                    </span>
+                </AlertTitle>
+                <AlertDescription className="mt-2">
+                    <div className="space-y-2">
+                        {lote.details.discrepancies.map((d: any, idx: number) => (
+                            <div key={idx} className="text-sm border-b border-orange-200 dark:border-orange-800 last:border-0 pb-2 last:pb-0">
+                                <span className="font-semibold block mb-1">{d.field}:</span>
+                                <div className="grid grid-cols-2 gap-2 mt-1 bg-white/50 dark:bg-black/20 p-2 rounded">
+                                    <div>
+                                        <span className="text-xs uppercase font-bold text-orange-700 dark:text-orange-400 block mb-0.5">Edital:</span>
+                                        <div className="font-medium break-words">{d.editalValue || "N/A"}</div>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs uppercase font-bold text-orange-700 dark:text-orange-400 block mb-0.5">Matrícula:</span>
+                                        <div className="font-medium break-words">{d.matriculaValue || "N/A"}</div>
+                                    </div>
+                                </div>
+                                <div className="text-xs mt-1.5 text-orange-800 dark:text-orange-300 italic">
+                                    "{d.message}"
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </AlertDescription>
+            </Alert>
+        )}
+
         <Card>
             <CardHeader>
             <div className="flex items-start justify-between">
@@ -598,6 +642,11 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                     auctionPrices={lote.auction_prices}
                     onSave={handleFinancialSave}
                 />
+
+                <Separator />
+
+                {/* Market Analysis Section */}
+                <MarketAnalysisSection loteId={lote.id} />
 
                 <Separator />
 

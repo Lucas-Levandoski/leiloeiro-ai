@@ -24,7 +24,7 @@ export async function analyzeRisk(loteDetails: any, matriculaData: any) {
     
     Task:
     1. Evaluate the overall risk level (high, medium, low).
-    2. Provide a detailed risk analysis explanation.
+    2. Provide a detailed risk analysis explanation in Portuguese (pt-BR).
     
     Risk Criteria:
     - High Risk: Occupied property (Ocupado), active legal actions (penhora, arresto, indisponibilidade) that are not cleared, large debts, structural issues.
@@ -34,7 +34,7 @@ export async function analyzeRisk(loteDetails: any, matriculaData: any) {
     Return JSON:
     {
         "risk_level": "high" | "medium" | "low",
-        "risk_analysis": "string"
+        "risk_analysis": "string (in Portuguese)"
     }
   `;
 
@@ -42,7 +42,7 @@ export async function analyzeRisk(loteDetails: any, matriculaData: any) {
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
-        { role: "system", content: "You are a helpful assistant that evaluates real estate risk. Respond with valid JSON only." },
+        { role: "system", content: "You are a helpful assistant that evaluates real estate risk. Respond with valid JSON only. Always answer in Portuguese (pt-BR)." },
         { role: "user", content: prompt }
       ],
       response_format: { type: "json_object" },

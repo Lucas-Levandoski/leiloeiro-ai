@@ -46,7 +46,7 @@ export async function extractLoteDetails(loteText: string, globalContext?: any) 
     25. City Registration ID (Inscrição Municipal / IPTU)
     26. Occupancy Status (Ocupado/Desocupado)
     27. Legal Actions (List of legal processes mentioned)
-    28. Risk Analysis (Identify potential risks such as "Ocupado", "Ações Judiciais", "Dívidas", "Problemas na Matrícula", etc. Return a short explanation of why it is risky.)
+    28. Risk Analysis (Identify potential risks such as "Ocupado", "Ações Judiciais", "Dívidas", "Problemas na Matrícula", etc. Return a short explanation of why it is risky in Portuguese (pt-BR).)
     29. Risk Level (Classify the risk level as "high", "medium", or "low".)
         - "high": Occupied, has active legal actions blocking sale, debts higher than value, or major structural issues.
         - "medium": Minor debts, registration issues that can be solved, or lack of clear information.
@@ -100,7 +100,7 @@ export async function extractLoteDetails(loteText: string, globalContext?: any) 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
-        { role: "system", content: "You are a helpful assistant that extracts structured data. Respond with valid JSON only." },
+        { role: "system", content: "You are a helpful assistant that extracts structured data. Respond with valid JSON only. Always use Portuguese (pt-BR) for descriptions and analysis." },
         { role: "user", content: prompt }
       ],
       response_format: { type: "json_object" },

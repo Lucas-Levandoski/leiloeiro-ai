@@ -126,8 +126,13 @@ export function MatriculaCard({
                                             { key: 'contrato', label: 'Contrato' },
                                             { key: 'credor', label: 'Banco/Credor' },
                                             { key: 'cpf_devedores', label: 'CPF Devedores' },
+                                            { key: 'proprietario_atual', label: 'Proprietário Atual' },
                                             { key: 'data_primeiro_leilao', label: '1º Leilão' },
                                             { key: 'data_segundo_leilao', label: '2º Leilão' },
+                                            { key: 'numero_matricula', label: 'Matrícula' },
+                                            { key: 'area_total', label: 'Área Total' },
+                                            { key: 'area_privativa', label: 'Área Privativa' },
+                                            { key: 'area_terreno', label: 'Área Terreno' },
                                         ].map((item) => (
                                             <div key={item.key} className="space-y-1">
                                                 <span className="text-xs font-medium text-muted-foreground">{item.label}</span>
