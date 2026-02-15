@@ -21,7 +21,7 @@ interface FinancialCalculatorProps {
   auctionPrices: any[];
   onSave: (updatedDetails: any) => Promise<void>;
 }
-
+  
 export function FinancialCalculator({ details, auctionPrices, onSave }: FinancialCalculatorProps) {
   const [loading, setLoading] = useState(false);
   
