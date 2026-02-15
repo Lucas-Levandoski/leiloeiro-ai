@@ -34,6 +34,9 @@ export async function compareLoteData(loteDetails: any, matriculaData: any) {
     5. Legal Status - If the edital says "Occupied" but matricula implies otherwise (or vice versa, though matricula usually doesn't say occupancy).
     6. Owners - Does the edital mention the same owner/debtor as the matricula?
 
+    IMPORTANT: The "field" property in the output MUST be in Portuguese (pt-BR).
+    Examples of field names: "Área Total", "Área Privativa", "Área do Terreno", "Número da Matrícula", "Proprietário", "Ocupação", "Credor", "Datas do Leilão".
+
     Lote Data (Edital):
     ${JSON.stringify(loteDetails, null, 2)}
 
@@ -47,7 +50,7 @@ export async function compareLoteData(loteDetails: any, matriculaData: any) {
     {
       "discrepancies": [
         {
-          "field": "Field Name (e.g., Area Total)",
+          "field": "Field Name in Portuguese (e.g., Área Total)",
           "editalValue": "Value in Edital",
           "matriculaValue": "Value in Matricula",
           "severity": "high" | "medium" | "low",

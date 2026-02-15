@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { getLoteById, toggleLoteFavorite, updateLoteAction } from "@/actions/projects";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -260,6 +260,34 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
     }
   };
 
+  const handleMarketAnalysisUpdate = useCallback((averagePrice: number) => {
+    setLote((prev: any) => {
+        if (!prev) return prev;
+        
+        // Break the loop if value is already set
+        if (prev.details?.market_average_price === averagePrice) {
+            return prev;
+        }
+
+        const updatedDetails = {
+            ...prev.details,
+            market_average_price: averagePrice
+        };
+        
+        // Save to backend
+        updateLoteAction(prev.id, {
+            ...updatedDetails,
+            id: prev.id,
+            title: prev.title
+        }).catch(console.error);
+
+        return {
+            ...prev,
+            details: updatedDetails
+        };
+    });
+  }, []);
+
   const handleRemoveMatricula = async () => {
       if (!lote) return;
       if (!confirm("Tem certeza que deseja remover os dados da matrícula?")) return;
@@ -345,6 +373,63 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
   }
 
   const hasRelevantDiscrepancies = lote.details?.discrepancies?.some((d: any) => d.isRelevant !== false);
+  
+  // Calculate highest severity among relevant discrepancies
+  const getHighestSeverity = () => {
+    if (!lote.details?.discrepancies) return null;
+    
+    const relevantDiscrepancies = lote.details.discrepancies.filter((d: any) => d.isRelevant !== false);
+    if (relevantDiscrepancies.length === 0) return null;
+    
+    const hasHigh = relevantDiscrepancies.some((d: any) => d.severity?.toLowerCase() === 'high');
+    if (hasHigh) return 'high';
+    
+    const hasMedium = relevantDiscrepancies.some((d: any) => d.severity?.toLowerCase() === 'medium');
+    if (hasMedium) return 'medium';
+    
+    return 'low';
+  };
+
+  const highestSeverity = getHighestSeverity();
+
+  const getSeverityStyles = (severity: string) => {
+    switch (severity?.toLowerCase()) {
+        case 'high':
+            return {
+                border: 'border-red-200 dark:border-red-800',
+                text: 'text-red-800 dark:text-red-300',
+                label: 'text-red-700 dark:text-red-400',
+                decoration: 'decoration-red-300',
+                hover: 'hover:text-red-600',
+                bg: 'bg-red-50/50 dark:bg-red-900/10',
+                badge: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100',
+                label_text: 'Alta'
+            };
+        case 'low':
+            return {
+                border: 'border-blue-200 dark:border-blue-800',
+                text: 'text-blue-800 dark:text-blue-300',
+                label: 'text-blue-700 dark:text-blue-400',
+                decoration: 'decoration-blue-300',
+                hover: 'hover:text-blue-600',
+                bg: 'bg-blue-50/50 dark:bg-blue-900/10',
+                badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100',
+                label_text: 'Baixa'
+            };
+        case 'medium':
+        default:
+            return {
+                border: 'border-orange-200 dark:border-orange-800',
+                text: 'text-orange-800 dark:text-orange-300',
+                label: 'text-orange-700 dark:text-orange-400',
+                decoration: 'decoration-orange-300',
+                hover: 'hover:text-orange-600',
+                bg: 'bg-orange-50/50 dark:bg-orange-900/10',
+                badge: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100',
+                label_text: 'Média'
+            };
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -552,11 +637,28 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                             <div className="flex items-center gap-2 text-orange-900 dark:text-orange-200">
                                 <AlertCircle className="h-5 w-5" />
                                 <span className="font-semibold text-lg">Discrepâncias Encontradas</span>
-                                {lote.details?.discrepancies && lote.details.discrepancies.length > 0 && hasRelevantDiscrepancies && (
-                                    <span className="text-xs px-2 py-0.5 rounded-full uppercase font-bold tracking-wider bg-orange-200 text-orange-800 dark:bg-orange-900 dark:text-orange-100 ml-2">
-                                        Atenção
-                                    </span>
-                                )}
+                                <span className={`text-xs px-2 py-0.5 rounded-full uppercase font-bold tracking-wider ml-2 ${
+                                    !lote.details?.matricula_data 
+                                        ? "bg-yellow-200 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" 
+                                        : (!lote.details.discrepancies || lote.details.discrepancies.length === 0) 
+                                            ? "bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-100"
+                                            : hasRelevantDiscrepancies
+                                                ? "bg-orange-200 text-orange-800 dark:bg-orange-900 dark:text-orange-100"
+                                                : "bg-blue-200 text-blue-800 dark:bg-blue-900 dark:text-blue-100"
+                                }`}>
+                                    {!lote.details?.matricula_data 
+                                        ? "Aguardando Matrícula" 
+                                        : (!lote.details.discrepancies || lote.details.discrepancies.length === 0) 
+                                            ? "Sem Discrepâncias"
+                                            : hasRelevantDiscrepancies
+                                                ? (
+                                                    <span className="flex items-center gap-1">
+                                                        Atenção: Severidade {highestSeverity === 'high' ? 'Alta' : highestSeverity === 'medium' ? 'Média' : 'Baixa'}
+                                                    </span>
+                                                )
+                                                : "Discrepâncias Irrelevantes"
+                                    }
+                                </span>
                             </div>
                         </AccordionTrigger>
                         <AccordionContent>
@@ -579,15 +681,23 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                                         <div className="space-y-2">
                                             {lote.details.discrepancies.map((d: any, idx: number) => {
                                                 const isRelevant = d.isRelevant !== false;
+                                                const styles = getSeverityStyles(d.severity);
                                                 return (
-                                                    <div key={idx} className={`text-sm border-b border-orange-200 dark:border-orange-800 last:border-0 pb-2 last:pb-0 ${!isRelevant ? 'opacity-60' : ''}`}>
+                                                    <div key={idx} className={`text-sm border-b ${styles.border} last:border-0 pb-2 last:pb-0 ${!isRelevant ? 'opacity-60' : ''}`}>
                                                         <div className="flex justify-between items-center mb-1">
-                                                            <span className="font-semibold block">{d.field}:</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-semibold block">{d.field}:</span>
+                                                                {isRelevant && (
+                                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider ${styles.badge}`}>
+                                                                        {styles.label_text}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <Button 
                                                                 variant="ghost" 
                                                                 size="sm" 
                                                                 onClick={() => handleToggleDiscrepancy(idx)}
-                                                                className={`h-6 px-2 text-xs gap-1.5 ${isRelevant ? 'text-muted-foreground hover:text-orange-600' : 'text-green-600 hover:text-green-700'}`}
+                                                                className={`h-6 px-2 text-xs gap-1.5 ${isRelevant ? `text-muted-foreground ${styles.hover}` : 'text-green-600 hover:text-green-700'}`}
                                                                 title={isRelevant ? "Marcar como irrelevante" : "Marcar como relevante"}
                                                             >
                                                                 {isRelevant ? (
@@ -603,17 +713,17 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                                                                 )}
                                                             </Button>
                                                         </div>
-                                                        <div className="grid grid-cols-2 gap-2 mt-1 bg-white/50 dark:bg-black/20 p-2 rounded">
+                                                        <div className={`grid grid-cols-2 gap-2 mt-1 ${styles.bg} p-2 rounded`}>
                                                             <div>
-                                                                <span className="text-xs uppercase font-bold text-orange-700 dark:text-orange-400 block mb-0.5">Edital:</span>
-                                                                <div className={`font-medium break-words ${!isRelevant ? 'line-through decoration-orange-300' : ''}`}>{d.editalValue || "N/A"}</div>
+                                                                <span className={`text-xs uppercase font-bold ${styles.label} block mb-0.5`}>Edital:</span>
+                                                                <div className={`font-medium break-words ${!isRelevant ? `line-through ${styles.decoration}` : ''}`}>{d.editalValue || "N/A"}</div>
                                                             </div>
                                                             <div>
-                                                                <span className="text-xs uppercase font-bold text-orange-700 dark:text-orange-400 block mb-0.5">Matrícula:</span>
-                                                                <div className={`font-medium break-words ${!isRelevant ? 'line-through decoration-orange-300' : ''}`}>{d.matriculaValue || "N/A"}</div>
+                                                                <span className={`text-xs uppercase font-bold ${styles.label} block mb-0.5`}>Matrícula:</span>
+                                                                <div className={`font-medium break-words ${!isRelevant ? `line-through ${styles.decoration}` : ''}`}>{d.matriculaValue || "N/A"}</div>
                                                             </div>
                                                         </div>
-                                                        <div className="text-xs mt-1.5 text-orange-800 dark:text-orange-300 italic">
+                                                        <div className={`text-xs mt-1.5 ${styles.text} italic`}>
                                                             "{d.message}"
                                                         </div>
                                                     </div>
@@ -715,6 +825,12 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                              <div className="flex items-center gap-2 text-blue-900 dark:text-blue-200">
                                 <FileTextIcon className="h-5 w-5" />
                                 <span className="font-semibold text-lg">Matrícula</span>
+                                {(lote.details?.matricula_url || lote.details?.matricula_data) && (
+                                    <span className="flex items-center gap-1 ml-2 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 text-xs px-2 py-0.5 rounded-full font-medium">
+                                        <Check className="h-3 w-3" />
+                                        Anexada
+                                    </span>
+                                )}
                             </div>
                         </AccordionTrigger>
                         <AccordionContent>
@@ -736,6 +852,16 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                             <div className="flex items-center gap-2 text-green-900 dark:text-green-200">
                                 <DollarSign className="h-5 w-5" />
                                 <span className="font-semibold text-lg">Análise Financeira</span>
+                                {(lote.details?.financial_roi !== undefined && lote.details?.financial_roi !== null) && (
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold tracking-wider ml-2 ${
+                                        Number(lote.details.financial_roi) >= 50 ? "bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-100" :
+                                        Number(lote.details.financial_roi) >= 20 ? "bg-blue-200 text-blue-800 dark:bg-blue-900 dark:text-blue-100" :
+                                        Number(lote.details.financial_roi) >= 0 ? "bg-yellow-200 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" :
+                                        "bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-100"
+                                    }`}>
+                                        ROI: {Number(lote.details.financial_roi).toFixed(2)}%
+                                    </span>
+                                )}
                             </div>
                         </AccordionTrigger>
                         <AccordionContent>
@@ -752,10 +878,18 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                             <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200">
                                 <Sparkles className="h-5 w-5" />
                                 <span className="font-semibold text-lg">Análise de Mercado</span>
+                                {lote.details?.market_average_price > 0 && (
+                                    <span className="text-xs bg-indigo-200 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100 px-2 py-0.5 rounded-full font-bold tracking-wider ml-2">
+                                        ~ {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(lote.details.market_average_price)}
+                                    </span>
+                                )}
                             </div>
                         </AccordionTrigger>
                         <AccordionContent>
-                            <MarketAnalysisSection loteId={lote.id} />
+                            <MarketAnalysisSection 
+                                loteId={lote.id} 
+                                onAnalysisUpdate={handleMarketAnalysisUpdate}
+                            />
                         </AccordionContent>
                     </AccordionItem>
 

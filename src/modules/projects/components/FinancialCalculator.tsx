@@ -112,6 +112,8 @@ export function FinancialCalculator({ details, auctionPrices, onSave }: Financia
     }));
   };
 
+
+
   const handleSave = async () => {
     setLoading(true);
     try {
@@ -129,6 +131,10 @@ export function FinancialCalculator({ details, auctionPrices, onSave }: Financia
         financial_taxa_imobiliaria_rate: formData.taxa_imobiliaria_rate,
         financial_taxa_transferencia_rate: formData.taxa_transferencia_rate,
         financial_taxa_imposto_rate: formData.taxa_imposto_rate,
+        // Save calculated values
+        financial_roi: roi,
+        financial_custo_total: custoTotal,
+        financial_lucro_potencial: lucroPotencial
       };
       await onSave(updatedDetails);
       toast.success("Informações financeiras salvas!");

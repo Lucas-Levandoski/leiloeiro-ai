@@ -11,9 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 
 interface MarketAnalysisSectionProps {
   loteId: string;
+  onAnalysisUpdate?: (averagePrice: number) => void;
 }
 
-export function MarketAnalysisSection({ loteId }: MarketAnalysisSectionProps) {
+export function MarketAnalysisSection({ loteId, onAnalysisUpdate }: MarketAnalysisSectionProps) {
   const [analysis, setAnalysis] = useState<MarketAnalysis[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -21,6 +22,34 @@ export function MarketAnalysisSection({ loteId }: MarketAnalysisSectionProps) {
   useEffect(() => {
     loadAnalysis();
   }, [loteId]);
+
+  useEffect(() => {
+    if (analysis.length > 0 && onAnalysisUpdate) {
+      const averagePrice = calculateAveragePrice(analysis);
+      if (averagePrice > 0) {
+        onAnalysisUpdate(averagePrice);
+      }
+    }
+  }, [analysis, onAnalysisUpdate]);
+
+  const calculateAveragePrice = (items: MarketAnalysis[]) => {
+    if (!items || items.length === 0) return 0;
+    
+    let validPrices = 0;
+    const total = items.reduce((acc, item) => {
+      // Remove R$, dots and replace comma with dot
+      const priceString = item.price?.toString().replace(/[^\d,]/g, '').replace(',', '.') || '0';
+      const price = parseFloat(priceString);
+      
+      if (!isNaN(price) && price > 0) {
+        validPrices++;
+        return acc + price;
+      }
+      return acc;
+    }, 0);
+
+    return validPrices > 0 ? total / validPrices : 0;
+  };
 
   const loadAnalysis = async () => {
     try {
