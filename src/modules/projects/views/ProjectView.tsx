@@ -49,6 +49,7 @@ interface ProjectViewProps {
 
 import { LoteCard } from "../components/LoteCard"
 import { BankLogo } from "@/components/BankLogo"
+import { Accordion } from "@/components/ui/accordion"
 
 export function ProjectView({ projectId }: ProjectViewProps) {
   const router = useRouter()
@@ -595,7 +596,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-sm font-semibold text-purple-800 dark:text-purple-300">Lotes Identificados ({sortedLotes.length})</h3>
                                 </div>
-                                <div className="grid grid-cols-1 gap-4">
+                                <Accordion type="multiple" className="w-full space-y-4">
                                     {sortedLotes.map((lote, index) => (
                                         <LoteCard 
                                             key={index} 
@@ -606,7 +607,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                                             index={index}
                                         />
                                     ))}
-                                </div>
+                                </Accordion>
                             </div>
                         )}
                         

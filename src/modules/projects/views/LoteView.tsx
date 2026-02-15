@@ -16,9 +16,10 @@ import { MarketAnalysisSection } from "@/modules/projects/components/MarketAnaly
 import { uploadFile } from "@/actions/projects";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, Upload, FileText as FileTextIcon, RefreshCw, AlertCircle } from "lucide-react";
+import { Check, Upload, FileText as FileTextIcon, RefreshCw, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface LoteViewProps {
   loteId: string;
@@ -291,6 +292,39 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
       }
   };
 
+  const handleToggleDiscrepancy = async (index: number) => {
+    if (!lote || !lote.details?.discrepancies) return;
+    
+    const discrepancies = [...lote.details.discrepancies];
+    const currentStatus = discrepancies[index].isRelevant !== false; // Default is true
+    discrepancies[index].isRelevant = !currentStatus;
+    
+    const updatedDetails = {
+        ...lote.details,
+        discrepancies
+    };
+    
+    // Optimistic update
+    setLote({
+        ...lote,
+        details: updatedDetails
+    });
+
+    try {
+        const updatePayload = {
+            ...updatedDetails,
+            id: lote.id,
+            title: lote.title
+        };
+        await updateLoteAction(lote.id, updatePayload);
+        toast.success(currentStatus ? "Marcada como irrelevante" : "Marcada como relevante");
+    } catch (error) {
+         toast.error("Erro ao salvar alteração");
+         // Revert on error could be implemented here
+    }
+  };
+
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -309,6 +343,8 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
       </div>
     );
   }
+
+  const hasRelevantDiscrepancies = lote.details?.discrepancies?.some((d: any) => d.isRelevant !== false);
 
   return (
     <div className="flex flex-col h-full">
@@ -430,42 +466,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
         )}
 
         {/* Data Discrepancy Alert */}
-        {lote.details?.discrepancies && lote.details.discrepancies.length > 0 && (
-            <Alert 
-                variant="destructive"
-                className="bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-200"
-            >
-                <AlertCircle className="h-5 w-5 text-orange-900 dark:text-orange-200" />
-                <AlertTitle className="flex items-center gap-2">
-                    Discrepâncias Encontradas
-                    <span className="text-xs px-2 py-0.5 rounded-full uppercase font-bold tracking-wider bg-orange-200 text-orange-800 dark:bg-orange-900 dark:text-orange-100">
-                        Atenção
-                    </span>
-                </AlertTitle>
-                <AlertDescription className="mt-2">
-                    <div className="space-y-2">
-                        {lote.details.discrepancies.map((d: any, idx: number) => (
-                            <div key={idx} className="text-sm border-b border-orange-200 dark:border-orange-800 last:border-0 pb-2 last:pb-0">
-                                <span className="font-semibold block mb-1">{d.field}:</span>
-                                <div className="grid grid-cols-2 gap-2 mt-1 bg-white/50 dark:bg-black/20 p-2 rounded">
-                                    <div>
-                                        <span className="text-xs uppercase font-bold text-orange-700 dark:text-orange-400 block mb-0.5">Edital:</span>
-                                        <div className="font-medium break-words">{d.editalValue || "N/A"}</div>
-                                    </div>
-                                    <div>
-                                        <span className="text-xs uppercase font-bold text-orange-700 dark:text-orange-400 block mb-0.5">Matrícula:</span>
-                                        <div className="font-medium break-words">{d.matriculaValue || "N/A"}</div>
-                                    </div>
-                                </div>
-                                <div className="text-xs mt-1.5 text-orange-800 dark:text-orange-300 italic">
-                                    "{d.message}"
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </AlertDescription>
-            </Alert>
-        )}
+        {/* Removed redundant alert */}
 
         <Card>
             <CardHeader>
@@ -545,166 +546,284 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                 
                 <Separator />
 
-                {/* Details Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                        <h3 className="font-semibold text-foreground flex items-center gap-2">
-                            <MapPin className="h-4 w-4" /> Localização Detalhada
-                        </h3>
-                        <div className="space-y-2 text-muted-foreground text-sm">
-                            <div className="grid grid-cols-2 gap-2">
-                                <div><span className="font-medium text-foreground block">Logradouro:</span> {lote.details?.address_street || "-"}</div>
-                                <div><span className="font-medium text-foreground block">Número:</span> {lote.details?.address_number || "-"}</div>
+                <Accordion type="multiple" className="w-full space-y-4">
+                    <AccordionItem value="discrepancies" className="border rounded-lg bg-orange-50/30 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800 px-4">
+                        <AccordionTrigger className="hover:no-underline">
+                            <div className="flex items-center gap-2 text-orange-900 dark:text-orange-200">
+                                <AlertCircle className="h-5 w-5" />
+                                <span className="font-semibold text-lg">Discrepâncias Encontradas</span>
+                                {lote.details?.discrepancies && lote.details.discrepancies.length > 0 && hasRelevantDiscrepancies && (
+                                    <span className="text-xs px-2 py-0.5 rounded-full uppercase font-bold tracking-wider bg-orange-200 text-orange-800 dark:bg-orange-900 dark:text-orange-100 ml-2">
+                                        Atenção
+                                    </span>
+                                )}
                             </div>
-                            <div><span className="font-medium text-foreground block">Complemento:</span> {lote.details?.address_complement || "-"}</div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div><span className="font-medium text-foreground block">Bairro:</span> {lote.details?.neighborhood || "-"}</div>
-                                <div><span className="font-medium text-foreground block">CEP:</span> {lote.details?.address_zip || "-"}</div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                            <div className="pt-4">
+                                {!lote.details?.matricula_data ? (
+                                    <div className="p-3 bg-yellow-50 dark:bg-yellow-900/10 text-yellow-800 dark:text-yellow-200 rounded border border-yellow-200 dark:border-yellow-800 text-sm">
+                                        Envie a matrícula para análise para identificar possíveis discrepâncias.
+                                    </div>
+                                ) : (!lote.details.discrepancies || lote.details.discrepancies.length === 0) ? (
+                                    <div className="p-3 bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-300 rounded border border-green-200 dark:border-green-800 flex items-center gap-2 text-sm">
+                                        <Check className="h-4 w-4" /> Nenhuma irregularidade cadastral encontrada.
+                                    </div>
+                                ) : (
+                                    <>
+                                        {!hasRelevantDiscrepancies && (
+                                            <div className="p-3 bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-300 rounded border border-green-200 dark:border-green-800 flex items-center gap-2 text-sm mb-4">
+                                                <Check className="h-4 w-4" /> Sem maiores problemas cadastrais (Discrepâncias marcadas como irrelevantes).
+                                            </div>
+                                        )}
+                                        <div className="space-y-2">
+                                            {lote.details.discrepancies.map((d: any, idx: number) => {
+                                                const isRelevant = d.isRelevant !== false;
+                                                return (
+                                                    <div key={idx} className={`text-sm border-b border-orange-200 dark:border-orange-800 last:border-0 pb-2 last:pb-0 ${!isRelevant ? 'opacity-60' : ''}`}>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <span className="font-semibold block">{d.field}:</span>
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="sm" 
+                                                                onClick={() => handleToggleDiscrepancy(idx)}
+                                                                className={`h-6 px-2 text-xs gap-1.5 ${isRelevant ? 'text-muted-foreground hover:text-orange-600' : 'text-green-600 hover:text-green-700'}`}
+                                                                title={isRelevant ? "Marcar como irrelevante" : "Marcar como relevante"}
+                                                            >
+                                                                {isRelevant ? (
+                                                                    <>
+                                                                        <EyeOff className="h-3 w-3" />
+                                                                        <span className="sr-only">Ignorar</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Eye className="h-3 w-3" />
+                                                                        <span className="sr-only">Considerar</span>
+                                                                    </>
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-2 mt-1 bg-white/50 dark:bg-black/20 p-2 rounded">
+                                                            <div>
+                                                                <span className="text-xs uppercase font-bold text-orange-700 dark:text-orange-400 block mb-0.5">Edital:</span>
+                                                                <div className={`font-medium break-words ${!isRelevant ? 'line-through decoration-orange-300' : ''}`}>{d.editalValue || "N/A"}</div>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-xs uppercase font-bold text-orange-700 dark:text-orange-400 block mb-0.5">Matrícula:</span>
+                                                                <div className={`font-medium break-words ${!isRelevant ? 'line-through decoration-orange-300' : ''}`}>{d.matriculaValue || "N/A"}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-xs mt-1.5 text-orange-800 dark:text-orange-300 italic">
+                                                            "{d.message}"
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </>
+                                )}
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div><span className="font-medium text-foreground block">Cidade:</span> {lote.city || "-"}</div>
-                                <div><span className="font-medium text-foreground block">Estado:</span> {lote.state || "-"}</div>
+                        </AccordionContent>
+                    </AccordionItem>
+
+                    <AccordionItem value="details" className="border rounded-lg bg-card px-4">
+                        <AccordionTrigger className="hover:no-underline">
+                            <div className="flex items-center gap-2">
+                                <Building2 className="h-5 w-5 text-blue-500" />
+                                <span className="font-semibold text-lg">Detalhes do Imóvel e Localização</span>
                             </div>
-                            <div className="pt-2 border-t mt-2">
-                                <span className="font-medium text-foreground block mb-1">Endereço Completo:</span> 
-                                {lote.details?.address || "-"}
+                        </AccordionTrigger>
+                        <AccordionContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                                <div className="space-y-4">
+                                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                                        <MapPin className="h-4 w-4" /> Localização Detalhada
+                                    </h3>
+                                    <div className="space-y-2 text-muted-foreground text-sm">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div><span className="font-medium text-foreground block">Logradouro:</span> {lote.details?.address_street || "-"}</div>
+                                            <div><span className="font-medium text-foreground block">Número:</span> {lote.details?.address_number || "-"}</div>
+                                        </div>
+                                        <div><span className="font-medium text-foreground block">Complemento:</span> {lote.details?.address_complement || "-"}</div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div><span className="font-medium text-foreground block">Bairro:</span> {lote.details?.neighborhood || "-"}</div>
+                                            <div><span className="font-medium text-foreground block">CEP:</span> {lote.details?.address_zip || "-"}</div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div><span className="font-medium text-foreground block">Cidade:</span> {lote.city || "-"}</div>
+                                            <div><span className="font-medium text-foreground block">Estado:</span> {lote.state || "-"}</div>
+                                        </div>
+                                        <div className="pt-2 border-t mt-2">
+                                            <span className="font-medium text-foreground block mb-1">Endereço Completo:</span> 
+                                            {lote.details?.address || "-"}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                                        <Building2 className="h-4 w-4" /> Detalhes do Imóvel
+                                    </h3>
+                                    <div className="space-y-2 text-muted-foreground text-sm">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div><span className="font-medium text-foreground block">Tipo:</span> {lote.details?.type || "-"}</div>
+                                            <div><span className="font-medium text-foreground block">Ocupação:</span> {lote.details?.occupancy_status || "-"}</div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div><span className="font-medium text-foreground block">Lote:</span> {lote.details?.lot || "-"}</div>
+                                            <div><span className="font-medium text-foreground block">Quadra:</span> {lote.details?.block || "-"}</div>
+                                        </div>
+                                        <div><span className="font-medium text-foreground block">Condomínio:</span> {lote.details?.condominium_name || "-"}</div>
+                                        <div><span className="font-medium text-foreground block">Loteamento:</span> {lote.details?.subdivision_name || "-"}</div>
+                                         <div><span className="font-medium text-foreground block">Vagas de Garagem:</span> {lote.details?.parking_spaces || "-"}</div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                                        <Landmark className="h-4 w-4" /> Dados Registrais
+                                    </h3>
+                                    <div className="space-y-2 text-muted-foreground text-sm">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div><span className="font-medium text-foreground block">Matrícula:</span> {lote.details?.registry_id || "-"}</div>
+                                            <div><span className="font-medium text-foreground block">Cartório:</span> {lote.details?.registry_office || "-"}</div>
+                                        </div>
+                                        <div><span className="font-medium text-foreground block">Inscrição Municipal:</span> {lote.details?.city_registration_id || "-"}</div>
+                                        <div><span className="font-medium text-foreground block">Fração Ideal:</span> {lote.details?.ideal_fraction || "-"}</div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                                        <ExternalLink className="h-4 w-4" /> Áreas
+                                    </h3>
+                                     <div className="space-y-2 text-muted-foreground text-sm">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div><span className="font-medium text-foreground block">Área Privativa:</span> {lote.details?.area_private || "-"}</div>
+                                            <div><span className="font-medium text-foreground block">Área Total:</span> {lote.details?.area_total || "-"}</div>
+                                        </div>
+                                        <div><span className="font-medium text-foreground block">Área Terreno:</span> {lote.details?.area_land || "-"}</div>
+                                        <div><span className="font-medium text-foreground block">Área (Genérica):</span> {lote.details?.size || "-"}</div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
+                        </AccordionContent>
+                    </AccordionItem>
 
-                    <div className="space-y-4">
-                        <h3 className="font-semibold text-foreground flex items-center gap-2">
-                            <Building2 className="h-4 w-4" /> Detalhes do Imóvel
-                        </h3>
-                        <div className="space-y-2 text-muted-foreground text-sm">
-                            <div className="grid grid-cols-2 gap-2">
-                                <div><span className="font-medium text-foreground block">Tipo:</span> {lote.details?.type || "-"}</div>
-                                <div><span className="font-medium text-foreground block">Ocupação:</span> {lote.details?.occupancy_status || "-"}</div>
+                    <AccordionItem value="matricula" className="border rounded-lg bg-blue-50/30 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 px-4">
+                        <AccordionTrigger className="hover:no-underline">
+                             <div className="flex items-center gap-2 text-blue-900 dark:text-blue-200">
+                                <FileTextIcon className="h-5 w-5" />
+                                <span className="font-semibold text-lg">Matrícula</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div><span className="font-medium text-foreground block">Lote:</span> {lote.details?.lot || "-"}</div>
-                                <div><span className="font-medium text-foreground block">Quadra:</span> {lote.details?.block || "-"}</div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                            <MatriculaCard 
+                                lote={lote}
+                                file={matriculaFile}
+                                setFile={setMatriculaFile}
+                                loading={matriculaLoading}
+                                onProcess={handleMatriculaProcess}
+                                onRemove={handleRemoveMatricula}
+                                isExpanded={true}
+                                setIsExpanded={setIsMatriculaExpanded}
+                            />
+                        </AccordionContent>
+                    </AccordionItem>
+
+                    <AccordionItem value="financial" className="border rounded-lg bg-green-50/30 dark:bg-green-900/10 border-green-200 dark:border-green-800 px-4">
+                        <AccordionTrigger className="hover:no-underline">
+                            <div className="flex items-center gap-2 text-green-900 dark:text-green-200">
+                                <DollarSign className="h-5 w-5" />
+                                <span className="font-semibold text-lg">Análise Financeira</span>
                             </div>
-                            <div><span className="font-medium text-foreground block">Condomínio:</span> {lote.details?.condominium_name || "-"}</div>
-                            <div><span className="font-medium text-foreground block">Loteamento:</span> {lote.details?.subdivision_name || "-"}</div>
-                             <div><span className="font-medium text-foreground block">Vagas de Garagem:</span> {lote.details?.parking_spaces || "-"}</div>
-                        </div>
-                    </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                            <FinancialCalculator 
+                                details={lote.details}
+                                auctionPrices={lote.auction_prices}
+                                onSave={handleFinancialSave}
+                            />
+                        </AccordionContent>
+                    </AccordionItem>
 
-                    <div className="space-y-4">
-                        <h3 className="font-semibold text-foreground flex items-center gap-2">
-                            <Landmark className="h-4 w-4" /> Dados Registrais
-                        </h3>
-                        <div className="space-y-2 text-muted-foreground text-sm">
-                            <div className="grid grid-cols-2 gap-2">
-                                <div><span className="font-medium text-foreground block">Matrícula:</span> {lote.details?.registry_id || "-"}</div>
-                                <div><span className="font-medium text-foreground block">Cartório:</span> {lote.details?.registry_office || "-"}</div>
+                    <AccordionItem value="market" className="border rounded-lg bg-indigo-50/30 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800 px-4">
+                        <AccordionTrigger className="hover:no-underline">
+                            <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200">
+                                <Sparkles className="h-5 w-5" />
+                                <span className="font-semibold text-lg">Análise de Mercado</span>
                             </div>
-                            <div><span className="font-medium text-foreground block">Inscrição Municipal:</span> {lote.details?.city_registration_id || "-"}</div>
-                            <div><span className="font-medium text-foreground block">Fração Ideal:</span> {lote.details?.ideal_fraction || "-"}</div>
-                        </div>
-                    </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                            <MarketAnalysisSection loteId={lote.id} />
+                        </AccordionContent>
+                    </AccordionItem>
 
-                    <div className="space-y-4">
-                        <h3 className="font-semibold text-foreground flex items-center gap-2">
-                            <ExternalLink className="h-4 w-4" /> Áreas
-                        </h3>
-                         <div className="space-y-2 text-muted-foreground text-sm">
-                            <div className="grid grid-cols-2 gap-2">
-                                <div><span className="font-medium text-foreground block">Área Privativa:</span> {lote.details?.area_private || "-"}</div>
-                                <div><span className="font-medium text-foreground block">Área Total:</span> {lote.details?.area_total || "-"}</div>
+                    <AccordionItem value="description" className="border rounded-lg bg-card px-4">
+                        <AccordionTrigger className="hover:no-underline">
+                            <div className="flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-gray-500" />
+                                <span className="font-semibold text-lg">Descrição Completa</span>
                             </div>
-                            <div><span className="font-medium text-foreground block">Área Terreno:</span> {lote.details?.area_land || "-"}</div>
-                            <div><span className="font-medium text-foreground block">Área (Genérica):</span> {lote.details?.size || "-"}</div>
-                        </div>
-                    </div>
-                </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                            <div className="space-y-4 pt-2">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                                        <FileText className="h-4 w-4" /> Texto da Descrição
+                                    </h3>
+                                    {!isEditingDescription ? (
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => setIsEditingDescription(true)}
+                                            className="h-8 text-muted-foreground hover:text-foreground"
+                                        >
+                                            <Edit className="h-4 w-4 mr-2" /> Editar
+                                        </Button>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                onClick={() => {
+                                                    setIsEditingDescription(false);
+                                                    setDescriptionValue(lote.description || lote.details?.rawContent || "");
+                                                }}
+                                                disabled={isSavingDescription}
+                                                className="h-8"
+                                            >
+                                                <X className="h-4 w-4 mr-2" /> Cancelar
+                                            </Button>
+                                            <Button 
+                                                size="sm" 
+                                                onClick={handleSaveDescription}
+                                                disabled={isSavingDescription}
+                                                className="h-8"
+                                            >
+                                                {isSavingDescription ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                                                Salvar
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
 
-                <Separator />
-
-                {/* Matricula Section */}
-                <MatriculaCard 
-                    lote={lote}
-                    file={matriculaFile}
-                    setFile={setMatriculaFile}
-                    loading={matriculaLoading}
-                    onProcess={handleMatriculaProcess}
-                    onRemove={handleRemoveMatricula}
-                    isExpanded={isMatriculaExpanded}
-                    setIsExpanded={setIsMatriculaExpanded}
-                />
-
-                <Separator />
-
-                {/* Financial Section */}
-                <FinancialCalculator 
-                    details={lote.details}
-                    auctionPrices={lote.auction_prices}
-                    onSave={handleFinancialSave}
-                />
-
-                <Separator />
-
-                {/* Market Analysis Section */}
-                <MarketAnalysisSection loteId={lote.id} />
-
-                <Separator />
-
-                {/* Full Description */}
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-foreground flex items-center gap-2">
-                            <FileText className="h-4 w-4" /> Descrição Completa
-                        </h3>
-                        {!isEditingDescription ? (
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => setIsEditingDescription(true)}
-                                className="h-8 text-muted-foreground hover:text-foreground"
-                            >
-                                <Edit className="h-4 w-4 mr-2" /> Editar
-                            </Button>
-                        ) : (
-                            <div className="flex gap-2">
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => {
-                                        setIsEditingDescription(false);
-                                        setDescriptionValue(lote.description || lote.details?.rawContent || "");
-                                    }}
-                                    disabled={isSavingDescription}
-                                    className="h-8"
-                                >
-                                    <X className="h-4 w-4 mr-2" /> Cancelar
-                                </Button>
-                                <Button 
-                                    size="sm" 
-                                    onClick={handleSaveDescription}
-                                    disabled={isSavingDescription}
-                                    className="h-8"
-                                >
-                                    {isSavingDescription ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                                    Salvar
-                                </Button>
+                                {isEditingDescription ? (
+                                    <Textarea 
+                                        value={descriptionValue} 
+                                        onChange={(e) => setDescriptionValue(e.target.value)}
+                                        className="min-h-[300px] font-mono text-sm"
+                                        placeholder="Digite a descrição do lote..."
+                                    />
+                                ) : (
+                                    <div className="bg-gray-50 dark:bg-muted/50 p-4 rounded-md border text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                        {lote.description || lote.details?.rawContent || "Sem descrição disponível."}
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-
-                    {isEditingDescription ? (
-                        <Textarea 
-                            value={descriptionValue} 
-                            onChange={(e) => setDescriptionValue(e.target.value)}
-                            className="min-h-[300px] font-mono text-sm"
-                            placeholder="Digite a descrição do lote..."
-                        />
-                    ) : (
-                        <div className="bg-gray-50 dark:bg-muted/50 p-4 rounded-md border text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                            {lote.description || lote.details?.rawContent || "Sem descrição disponível."}
-                        </div>
-                    )}
-                </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
 
             </CardContent>
         </Card>

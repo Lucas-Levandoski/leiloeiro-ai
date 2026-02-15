@@ -24,6 +24,7 @@ interface FinancialCalculatorProps {
   
 export function FinancialCalculator({ details, auctionPrices, onSave }: FinancialCalculatorProps) {
   const [loading, setLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   
   // State for inputs
   const [formData, setFormData] = useState({
@@ -64,6 +65,18 @@ export function FinancialCalculator({ details, auctionPrices, onSave }: Financia
     return parseCurrency(auctionPrices[0].value);
   };
 
+  // Helper to find initial market value (1st Auction)
+  const getInitialMarketValue = () => {
+    if (!auctionPrices || auctionPrices.length === 0) return 0;
+    
+    // Try to find "1º Leilão" or "Primeiro"
+    const firstAuction = auctionPrices.find(p => p.label?.toLowerCase().includes('1º') || p.label?.toLowerCase().includes('primeiro'));
+    if (firstAuction) return parseCurrency(firstAuction.value);
+
+    // Fallback to first price
+    return parseCurrency(auctionPrices[0].value);
+  };
+
   // Initialize state from details
   useEffect(() => {
     if (details) {
@@ -73,7 +86,7 @@ export function FinancialCalculator({ details, auctionPrices, onSave }: Financia
         divida_condominio: details.financial_divida_condominio ? Number(details.financial_divida_condominio) : 0,
         percentual_entrada: details.financial_percentual_entrada ? Number(details.financial_percentual_entrada) : (details.percentual_entrada ? Number(details.percentual_entrada) : 25),
         numero_maximo_parcelas: details.financial_max_parcelas ? Number(details.financial_max_parcelas) : (details.numero_maximo_parcelas ? Number(details.numero_maximo_parcelas) : 30),
-        valor_mercado: details.financial_valor_mercado ? Number(details.financial_valor_mercado) : 0,
+        valor_mercado: details.financial_valor_mercado ? Number(details.financial_valor_mercado) : getInitialMarketValue(),
         custo_manutencao: details.financial_custo_manutencao ? Number(details.financial_custo_manutencao) : 0,
         valor_lance: details.financial_valor_lance ? Number(details.financial_valor_lance) : getInitialPrice(),
         // Load custom rates if saved, otherwise defaults
@@ -154,83 +167,24 @@ export function FinancialCalculator({ details, auctionPrices, onSave }: Financia
   };
 
   return (
-    <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/10">
-      <CardHeader className="pb-4">
+    <div className="bg-transparent">
+      <div className="pb-4 pt-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xl font-bold flex items-center gap-2 text-emerald-800 dark:text-emerald-400">
+          <div className="text-xl font-bold flex items-center gap-2 text-emerald-800 dark:text-emerald-400">
             <Calculator className="h-5 w-5" />
             Simulador Financeiro
-          </CardTitle>
+          </div>
           <div className="flex items-center gap-2">
-            <Sheet>
-                <SheetTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-9 w-9 border-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 dark:border-emerald-800">
-                        <Settings2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-                    </Button>
-                </SheetTrigger>
-                <SheetContent>
-                    <SheetHeader>
-                        <SheetTitle>Configurar Taxas</SheetTitle>
-                        <SheetDescription>
-                            Ajuste as taxas utilizadas nos cálculos financeiros.
-                        </SheetDescription>
-                    </SheetHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="taxa_imposto">Taxa Imposto (ITBI)</Label>
-                            <div className="relative">
-                                <Input 
-                                    id="taxa_imposto" 
-                                    type="number" 
-                                    value={formData.taxa_imposto_rate}
-                                    onChange={(e) => handleInputChange('taxa_imposto_rate', e.target.value)}
-                                    className="pr-8"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="taxa_leiloeiro">Taxa Leiloeiro</Label>
-                            <div className="relative">
-                                <Input 
-                                    id="taxa_leiloeiro" 
-                                    type="number" 
-                                    value={formData.taxa_leiloeiro_rate}
-                                    onChange={(e) => handleInputChange('taxa_leiloeiro_rate', e.target.value)}
-                                    className="pr-8"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="taxa_imobiliaria">Comissão Imobiliária</Label>
-                            <div className="relative">
-                                <Input 
-                                    id="taxa_imobiliaria" 
-                                    type="number" 
-                                    value={formData.taxa_imobiliaria_rate}
-                                    onChange={(e) => handleInputChange('taxa_imobiliaria_rate', e.target.value)}
-                                    className="pr-8"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="taxa_transferencia">Taxa Transferência/Cartório</Label>
-                            <div className="relative">
-                                <Input 
-                                    id="taxa_transferencia" 
-                                    type="number" 
-                                    value={formData.taxa_transferencia_rate}
-                                    onChange={(e) => handleInputChange('taxa_transferencia_rate', e.target.value)}
-                                    className="pr-8"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                            </div>
-                        </div>
-                    </div>
-                </SheetContent>
-            </Sheet>
+            <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowSettings(!showSettings)}
+                className="h-9 border-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 dark:border-emerald-800 gap-2"
+            >
+                <Settings2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
+                <span className="text-emerald-700 dark:text-emerald-400">{showSettings ? "Ocultar Taxas" : "Configurar Taxas"}</span>
+            </Button>
+            
             <Button 
                 onClick={handleSave} 
                 disabled={loading}
@@ -241,8 +195,67 @@ export function FinancialCalculator({ details, auctionPrices, onSave }: Financia
             </Button>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
+        
+        {showSettings && (
+            <div className="mt-4 p-4 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg border border-emerald-100 dark:border-emerald-900 animate-in slide-in-from-top-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="taxa_imposto" className="text-xs">Taxa Imposto (ITBI)</Label>
+                        <div className="relative">
+                            <Input 
+                                id="taxa_imposto" 
+                                type="number" 
+                                value={formData.taxa_imposto_rate}
+                                onChange={(e) => handleInputChange('taxa_imposto_rate', e.target.value)}
+                                className="pr-8 h-8 bg-white dark:bg-slate-950"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">%</span>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="taxa_leiloeiro" className="text-xs">Taxa Leiloeiro</Label>
+                        <div className="relative">
+                            <Input 
+                                id="taxa_leiloeiro" 
+                                type="number" 
+                                value={formData.taxa_leiloeiro_rate}
+                                onChange={(e) => handleInputChange('taxa_leiloeiro_rate', e.target.value)}
+                                className="pr-8 h-8 bg-white dark:bg-slate-950"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">%</span>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="taxa_imobiliaria" className="text-xs">Comissão Imobiliária</Label>
+                        <div className="relative">
+                            <Input 
+                                id="taxa_imobiliaria" 
+                                type="number" 
+                                value={formData.taxa_imobiliaria_rate}
+                                onChange={(e) => handleInputChange('taxa_imobiliaria_rate', e.target.value)}
+                                className="pr-8 h-8 bg-white dark:bg-slate-950"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">%</span>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="taxa_transferencia" className="text-xs">Taxa Cartório</Label>
+                        <div className="relative">
+                            <Input 
+                                id="taxa_transferencia" 
+                                type="number" 
+                                value={formData.taxa_transferencia_rate}
+                                onChange={(e) => handleInputChange('taxa_transferencia_rate', e.target.value)}
+                                className="pr-8 h-8 bg-white dark:bg-slate-950"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+      </div>
+      <div className="space-y-6">
         
         {/* User Inputs Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -382,7 +395,7 @@ export function FinancialCalculator({ details, auctionPrices, onSave }: Financia
                 </div>
             </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

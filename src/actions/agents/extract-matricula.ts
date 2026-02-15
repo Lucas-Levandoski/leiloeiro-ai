@@ -33,9 +33,9 @@ export async function extractMatriculaData(text: string) {
     11. Data do 2º leilão (String: Extract date if mentioned in an "Averbação" (AV). If none, return null.)
     12. Indicação expressa de procedimento extrajudicial (Boolean: Is it explicitly mentioned that the procedure is extrajudicial?)
     13. Número da Matrícula (String: The number of the registration/matrícula. usually at the top right or beginning.)
-    14. Área Total (String: Total area of the property if mentioned.)
-    15. Área Privativa (String: Private area if mentioned.)
-    16. Área de Terreno (String: Land area if mentioned.)
+    14. Área Total (String: Total area of the property if mentioned. Always use "m²" as unit, e.g., "100,00 m²")
+    15. Área Privativa (String: Private area if mentioned. Always use "m²" as unit, e.g., "50,00 m²")
+    16. Área de Terreno (String: Land area if mentioned. Always use "m²" as unit, e.g., "200,00 m²")
     17. Proprietário Atual (String: Name of the current owner(s) listed in the last registration R-X.)
 
     Return result strictly as JSON:

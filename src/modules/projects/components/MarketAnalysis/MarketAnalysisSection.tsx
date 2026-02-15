@@ -58,17 +58,17 @@ export function MarketAnalysisSection({ loteId }: MarketAnalysisSectionProps) {
   }
 
   return (
-    <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10">
-      <CardHeader>
+    <div className="bg-transparent">
+      <div className="pb-4 pt-2">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2 text-blue-900 dark:text-blue-100">
+            <div className="text-xl font-bold flex items-center gap-2 text-blue-900 dark:text-blue-100">
               <TrendingUp className="h-5 w-5" />
               Análise de Mercado
-            </CardTitle>
-            <CardDescription className="text-blue-700 dark:text-blue-300">
+            </div>
+            <div className="text-sm text-blue-700 dark:text-blue-300">
               Compare com outras oportunidades similares na região (OLX)
-            </CardDescription>
+            </div>
           </div>
           <Button 
             onClick={handleAnalyze} 
@@ -83,8 +83,8 @@ export function MarketAnalysisSection({ loteId }: MarketAnalysisSectionProps) {
             Buscar Oportunidades
           </Button>
         </div>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div>
         {analysis.length > 0 ? (
           <MarketAnalysisList analysis={analysis} />
         ) : (
@@ -93,7 +93,7 @@ export function MarketAnalysisSection({ loteId }: MarketAnalysisSectionProps) {
             <p className="text-sm">Clique em "Buscar Oportunidades" para pesquisar imóveis similares na região.</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

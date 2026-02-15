@@ -8,6 +8,7 @@ interface Discrepancy {
   matriculaValue: string;
   severity: 'high' | 'medium' | 'low';
   message: string;
+  isRelevant?: boolean;
 }
 
 export async function compareLoteData(loteDetails: any, matriculaData: any) {
