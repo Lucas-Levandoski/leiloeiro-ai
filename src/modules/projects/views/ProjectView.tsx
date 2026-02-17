@@ -23,8 +23,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import Link from "next/link"
 import { extractTextFromPDF, extractPropertiesFromText, analyzeEditalStructure, extractLoteDetails } from "@/actions/agents"
 import { validatePDFPageCount } from "@/actions/validate-pdf"
-import { Loader2, Sparkles, CheckCircle2, Calendar, MapPin, Gavel, Landmark, ExternalLink, UploadCloud, FileText, X, AlertCircle } from "lucide-react"
+import { Loader2, Sparkles, CheckCircle2, Calendar, MapPin, Gavel, Landmark, ExternalLink, UploadCloud, FileText, X, AlertCircle, Plus } from "lucide-react"
 import { toast } from "sonner"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,6 +77,11 @@ export function ProjectView({ projectId }: ProjectViewProps) {
   const [lotes, setLotes] = useState<any[]>([])
   const [globalInfo, setGlobalInfo] = useState<any>(null)
   
+  const [manualDialogOpen, setManualDialogOpen] = useState(false)
+  const [manualText, setManualText] = useState("")
+  const [manualLoading, setManualLoading] = useState(false)
+  const [pageRange, setPageRange] = useState("")
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -317,6 +331,9 @@ export function ProjectView({ projectId }: ProjectViewProps) {
     try {
         const formData = new FormData();
         formData.append('file', editalFile);
+        if (pageRange.trim()) {
+            formData.append('pages', pageRange.trim());
+        }
         
         // Agent 1: Extract Text
         const textResult = await extractTextFromPDF(formData);
@@ -433,6 +450,73 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         setAiLoading(false);
     }
   };
+  
+  const handleManualExtraction = async () => {
+    if (!manualText.trim()) {
+        toast.error("Por favor, insira o texto do lote.");
+        return;
+    }
+
+    setManualLoading(true);
+    try {
+        const result = await extractLoteDetails(manualText, globalInfo);
+        
+        if (result.success && result.data) {
+            const newLote = {
+                ...result.data,
+                id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(7), // Temp ID
+                rawContent: manualText,
+                is_favorite: false
+            };
+            
+            // Optimistic update
+            const updatedLotes = [...lotes, newLote];
+            setLotes(updatedLotes);
+            
+            setManualDialogOpen(false);
+            setManualText("");
+            toast.success("Lote adicionado com sucesso!");
+            
+            // Auto-save if project exists
+            if (projectId) {
+               try {
+                   const values = form.getValues();
+                   const updated = await projectService.update(projectId, {
+                       name: values.name,
+                       description: values.description || "",
+                       lotes: updatedLotes,
+                       details: globalInfo
+                   }, undefined); 
+                   
+                   if (updated && updated.lotes) {
+                       setLotes(updated.lotes.map((l: any) => ({
+                            id: l.id,
+                            title: l.title,
+                            description: l.description,
+                            auction_prices: l.auction_prices,
+                            city: l.city,
+                            state: l.state,
+                            type: l.details?.type,
+                            rawContent: l.details?.rawContent || l.description,
+                            details: l.details,
+                            is_favorite: l.is_favorite
+                       })));
+                   }
+               } catch (saveError) {
+                   console.error("Error auto-saving manual lote", saveError);
+                   toast.error("Erro ao salvar o lote no projeto.");
+               }
+            }
+        } else {
+            toast.error("Não foi possível extrair informações do texto.");
+        }
+    } catch (error) {
+        console.error(error);
+        toast.error("Erro ao processar o texto.");
+    } finally {
+        setManualLoading(false);
+    }
+  }
   
   const sortedLotes = [...lotes].sort((a, b) => {
         if (!!a.is_favorite === !!b.is_favorite) {
@@ -624,6 +708,24 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                                 </div>
                             )}
                         </FormItem>
+
+                        <FormItem>
+                            <FormLabel className="text-base font-semibold text-blue-900 dark:text-blue-100">
+                                Páginas para Análise (Opcional)
+                            </FormLabel>
+                            <FormDescription>
+                                Indique as páginas que deseja analisar (ex: 1-3, 5, 8-10). Deixe em branco para analisar todo o documento.
+                            </FormDescription>
+                            <FormControl>
+                                <Input 
+                                    placeholder="Ex: 1-5, 8" 
+                                    value={pageRange} 
+                                    onChange={(e) => setPageRange(e.target.value)}
+                                    className="mt-2"
+                                    disabled={loading || aiLoading}
+                                />
+                            </FormControl>
+                        </FormItem>
                     </CardContent>
                     </Card>
 
@@ -711,27 +813,39 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                                     Identificação automática de lotes e valores.
                                 </CardDescription>
                             </div>
-                            <Button 
-                                type="button" 
-                                variant="secondary" 
-                                onClick={handleAiExtraction}
-                                disabled={aiLoading || loading || !editalFile}
-                                className="bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-900/80 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800 whitespace-nowrap"
-                            >
-                                {aiLoading ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        {aiStep === 'extracting_text' && 'Lendo PDF...'}
-                                        {aiStep === 'analyzing_structure' && 'Identificando Lotes...'}
-                                        {aiStep === 'extracting_details' && 'Detalhando Lotes...'}
-                                    </>
-                                ) : (
-                                    <>
-                                        <Sparkles className="mr-2 h-4 w-4" />
-                                        Analisar Edital
-                                    </>
-                                )}
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setManualDialogOpen(true)}
+                                    disabled={loading || manualLoading}
+                                    className="border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+                                >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Adicionar Manualmente
+                                </Button>
+                                <Button 
+                                    type="button" 
+                                    variant="secondary" 
+                                    onClick={handleAiExtraction}
+                                    disabled={aiLoading || loading || !editalFile}
+                                    className="bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-900/80 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800 whitespace-nowrap"
+                                >
+                                    {aiLoading ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            {aiStep === 'extracting_text' && 'Lendo PDF...'}
+                                            {aiStep === 'analyzing_structure' && 'Identificando Lotes...'}
+                                            {aiStep === 'extracting_details' && 'Detalhando Lotes...'}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="mr-2 h-4 w-4" />
+                                            Analisar Edital
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -798,6 +912,43 @@ export function ProjectView({ projectId }: ProjectViewProps) {
             )}
         </div>
       </div>
+
+      <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Adicionar Lote Manualmente</DialogTitle>
+            <DialogDescription>
+              Cole o texto completo do lote aqui para que a IA possa analisar e extrair as informações.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Textarea
+              placeholder="Cole aqui a descrição do lote (ex: Lote 01 - Apartamento..."
+              className="min-h-[200px]"
+              value={manualText}
+              onChange={(e) => setManualText(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualDialogOpen(false)} disabled={manualLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleManualExtraction} disabled={manualLoading}>
+              {manualLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Processar com IA
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
