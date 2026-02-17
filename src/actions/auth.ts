@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 
 import { createSupabaseServerClient } from '@/lib/supabaseServer'
 
@@ -27,6 +28,12 @@ export async function login(prevState: any, formData: FormData) {
 export async function signup(prevState: any, formData: FormData) {
   const supabase = await createSupabaseServerClient()
 
+  // Get current origin from headers to ensure correct redirect URL in all environments
+  const headersList = await headers()
+  const host = headersList.get('host')
+  const protocol = (headersList.get('x-forwarded-proto') ?? 'http').split(',')[0]
+  const origin = `${protocol}://${host}`
+
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const confirmPassword = formData.get('confirmPassword') as string
@@ -39,7 +46,7 @@ export async function signup(prevState: any, formData: FormData) {
     email,
     password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
+      emailRedirectTo: `${origin}/auth/callback`,
     },
   })
 
