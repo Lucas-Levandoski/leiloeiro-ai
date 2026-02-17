@@ -56,7 +56,8 @@ export async function extractTextFromPDF(formData: FormData) {
                 } else {
                     // Extract text only from selected pages
                     let extractedText = "";
-                    const pages = pdfData.formImage.Pages;
+                    
+                    const pages = pdfData.Pages;
                     
                     pages.forEach((page: any, index: number) => {
                         const pageNum = index + 1;
@@ -69,8 +70,10 @@ export async function extractTextFromPDF(formData: FormData) {
                             });
                             
                             texts.forEach((textItem: any) => {
+                                console.log(textItem);
+
                                 textItem.R.forEach((run: any) => {
-                                    extractedText += decodeURIComponent(run.T) + " ";
+                                    extractedText += run.T + " ";
                                 });
                             });
                             extractedText += "\n\n"; // Page separator
