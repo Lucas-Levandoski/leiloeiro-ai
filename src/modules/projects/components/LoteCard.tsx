@@ -1,5 +1,5 @@
     import { Button } from "@/components/ui/button"
-import { Eye, Trash2, Building2, FileText, Star } from "lucide-react"
+import { Eye, Trash2, Building2, FileText, Star, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import {
   AccordionItem,
@@ -56,7 +56,20 @@ export function LoteCard({ lote, projectId, onDelete, onToggleFavorite, index }:
 
             <AccordionTrigger className="px-4 py-3 hover:no-underline">
                 <div className="flex items-center gap-2 pr-24 text-left w-full">
-                    <h4 className="font-semibold text-foreground line-clamp-1" title={lote.title}>{lote.title}</h4>
+                    {lote.id && lote.id !== 'undefined' && !lote.id.toString().startsWith('new-') ? (
+                        <span 
+                            className="flex items-center gap-2 font-semibold text-foreground hover:underline z-50 group/link cursor-pointer"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(`/portal/projects/${projectId}/lotes/${lote.id}`, '_blank');
+                            }}
+                        >
+                            <h4 className="line-clamp-1" title={lote.title}>{lote.title}</h4>
+                            <ExternalLink className="h-4 w-4 shrink-0 opacity-50 group-hover/link:opacity-100" />
+                        </span>
+                    ) : (
+                        <h4 className="font-semibold text-foreground line-clamp-1" title={lote.title}>{lote.title}</h4>
+                    )}
                 </div>
             </AccordionTrigger>
             
