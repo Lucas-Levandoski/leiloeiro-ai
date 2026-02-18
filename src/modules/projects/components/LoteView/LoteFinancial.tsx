@@ -4,7 +4,7 @@ import { FinancialCalculator } from "@/modules/projects/components/FinancialCalc
 
 interface LoteFinancialProps {
     lote: any;
-    handleFinancialSave: (data: any) => void;
+    handleFinancialSave: (data: any) => Promise<void>;
 }
 
 export function LoteFinancial({
