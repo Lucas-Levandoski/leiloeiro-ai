@@ -347,7 +347,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
         await updateLoteAction(lote.id, updatePayload);
         toast.success(currentStatus ? "Marcada como irrelevante" : "Marcada como relevante");
     } catch (error) {
-         toast.error("Erro ao salvar alteração");
+        toast.error("Erro ao salvar alteração");
          // Revert on error could be implemented here
     }
   };
@@ -433,7 +433,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-none p-6 pb-0">
+    <div className="flex-none p-6 pb-0">
         <div className="flex items-center gap-4 mb-6">
             <Button variant="ghost" asChild>
                 <Link href={`/portal/projects/${projectId}`}>
@@ -441,9 +441,9 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                 </Link>
             </Button>
         </div>
-      </div>
+    </div>
 
-      <div className="flex-1 overflow-y-auto p-6 pt-0">
+    <div className="flex-1 overflow-y-auto p-6 pt-0">
         <div className="max-w-4xl mx-auto space-y-6 pb-10">
 
         {/* Auction Info Card */}
@@ -461,25 +461,25 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                             <span>Informações do Leilão</span>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                             {lote.projects.details.auctionDate && (
+                            {lote.projects.details.auctionDate && (
                                 <div className="md:col-span-2 bg-white/50 dark:bg-indigo-950/30 rounded-lg border border-indigo-100 dark:border-indigo-800 p-4">
                                     <div className="flex items-center gap-2 mb-3 text-indigo-800 dark:text-indigo-200">
                                         <Calendar className="h-5 w-5" />
                                         <span className="font-semibold">Cronograma do Leilão</span>
                                     </div>
                                     <div className="text-sm text-indigo-700 dark:text-indigo-300 whitespace-pre-line leading-relaxed pl-1">
-                                      <div className="flex flex-col gap-1">
-                                          {lote.projects.details.auctionDate.map((date: string, idx: number) => (
-                                              <div key={idx} className="flex items-start gap-2">
-                                                  <span className="text-indigo-400 dark:text-indigo-500">•</span>
-                                                  <span>{date}</span>
-                                              </div>
-                                          ))}
-                                      </div>
-                                     </div>
+                                        <div className="flex flex-col gap-1">
+                                            {lote.projects.details.auctionDate.map((date: string, idx: number) => (
+                                                <div key={idx} className="flex items-start gap-2">
+                                                    <span className="text-indigo-400 dark:text-indigo-500">•</span>
+                                                    <span>{date}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
-                             )}
-                             {lote.projects.details.auctionLocation && (
+                            )}
+                            {lote.projects.details.auctionLocation && (
                                 <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
                                     <MapPin className="h-4 w-4 shrink-0" />
                                     {lote.projects.details.auctionLocation.match(/^(https?:\/\/|www\.)|(\.com|\.br|\.net|\.org)/i) ? (
@@ -496,13 +496,13 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                                         <span className="truncate">{lote.projects.details.auctionLocation}</span>
                                     )}
                                 </div>
-                             )}
-                             {lote.projects.details.auctioneer && (
+                            )}
+                            {lote.projects.details.auctioneer && (
                                 <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 md:col-span-2">
                                     <span className="font-medium">Leiloeiro:</span>
                                     <span>{lote.projects.details.auctioneer}</span>
                                 </div>
-                             )}
+                            )}
                         </div>
                     </div>
                 </CardContent>
@@ -785,7 +785,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                                         </div>
                                         <div><span className="font-medium text-foreground block">Condomínio:</span> {lote.details?.condominium_name || "-"}</div>
                                         <div><span className="font-medium text-foreground block">Loteamento:</span> {lote.details?.subdivision_name || "-"}</div>
-                                         <div><span className="font-medium text-foreground block">Vagas de Garagem:</span> {lote.details?.parking_spaces || "-"}</div>
+                                        <div><span className="font-medium text-foreground block">Vagas de Garagem:</span> {lote.details?.parking_spaces || "-"}</div>
                                     </div>
                                 </div>
 
@@ -807,7 +807,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                                     <h3 className="font-semibold text-foreground flex items-center gap-2">
                                         <ExternalLink className="h-4 w-4" /> Áreas
                                     </h3>
-                                     <div className="space-y-2 text-muted-foreground text-sm">
+                                    <div className="space-y-2 text-muted-foreground text-sm">
                                         <div className="grid grid-cols-2 gap-2">
                                             <div><span className="font-medium text-foreground block">Área Privativa:</span> {lote.details?.area_private || "-"}</div>
                                             <div><span className="font-medium text-foreground block">Área Total:</span> {lote.details?.area_total || "-"}</div>
@@ -822,7 +822,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
 
                     <AccordionItem value="matricula" className="border rounded-lg bg-blue-50/30 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 px-4">
                         <AccordionTrigger className="hover:no-underline">
-                             <div className="flex items-center gap-2 text-blue-900 dark:text-blue-200">
+                            <div className="flex items-center gap-2 text-blue-900 dark:text-blue-200">
                                 <FileTextIcon className="h-5 w-5" />
                                 <span className="font-semibold text-lg">Matrícula</span>
                                 {(lote.details?.matricula_url || lote.details?.matricula_data) && (
@@ -848,29 +848,11 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                     </AccordionItem>
 
                     <AccordionItem value="financial" className="border rounded-lg bg-green-50/30 dark:bg-green-900/10 border-green-200 dark:border-green-800 px-4">
-                        <AccordionTrigger className="hover:no-underline">
-                            <div className="flex items-center gap-2 text-green-900 dark:text-green-200">
-                                <DollarSign className="h-5 w-5" />
-                                <span className="font-semibold text-lg">Análise Financeira</span>
-                                {(lote.details?.financial_roi !== undefined && lote.details?.financial_roi !== null) && (
-                                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold tracking-wider ml-2 ${
-                                        Number(lote.details.financial_roi) >= 50 ? "bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-100" :
-                                        Number(lote.details.financial_roi) >= 20 ? "bg-blue-200 text-blue-800 dark:bg-blue-900 dark:text-blue-100" :
-                                        Number(lote.details.financial_roi) >= 0 ? "bg-yellow-200 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" :
-                                        "bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-100"
-                                    }`}>
-                                        ROI: {Number(lote.details.financial_roi).toFixed(2)}%
-                                    </span>
-                                )}
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                            <FinancialCalculator 
-                                details={lote.details}
-                                auctionPrices={lote.auction_prices}
-                                onSave={handleFinancialSave}
-                            />
-                        </AccordionContent>
+                        <FinancialCalculator 
+                            details={lote.details}
+                            auctionPrices={lote.auction_prices}
+                            onSave={handleFinancialSave}
+                        />
                     </AccordionItem>
 
                     <AccordionItem value="market" className="border rounded-lg bg-indigo-50/30 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800 px-4">
