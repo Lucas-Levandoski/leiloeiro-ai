@@ -29,6 +29,7 @@ export function useProjectForm({
 }: UseProjectFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [notFound, setNotFound] = useState(false)
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(formSchema),
@@ -170,6 +171,7 @@ export function useProjectForm({
   return {
     form,
     loading,
+    notFound,
     onSubmit,
     handleDelete
   }

@@ -363,12 +363,26 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
 
   if (!lote) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <p className="text-gray-500">Lote não encontrado.</p>
-        <Button asChild>
-            <Link href={`/portal/projects/${projectId}`}>Voltar</Link>
-        </Button>
-      </div>
+        <div className="flex flex-col h-full">
+            <div className="flex-none p-6 pb-0">
+                <div className="flex items-center gap-4 mb-6">
+                    <Button variant="ghost" asChild>
+                        <Link href={`/portal/projects/${projectId}`}>
+                            <ArrowLeft className="h-4 w-4 mr-2" /> Voltar para o Projeto
+                        </Link>
+                    </Button>
+                </div>
+            </div>
+             <div className="flex-1 p-6">
+                <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                    <h1 className="text-2xl font-bold text-foreground">Lote não encontrado</h1>
+                    <p className="text-muted-foreground">O lote que você está tentando acessar não existe ou foi removido.</p>
+                    <Button asChild>
+                        <Link href={`/portal/projects/${projectId}`}>Voltar para o Projeto</Link>
+                    </Button>
+                </div>
+            </div>
+        </div>
     );
   }
 

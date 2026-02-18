@@ -27,6 +27,7 @@ import { BasicInfoForm } from "../components/BasicInfoForm"
 import { useProjectLotes } from "../hooks/useProjectLotes"
 import { useEditalAnalysis } from "../hooks/useEditalAnalysis"
 import { useProjectForm } from "../hooks/useProjectForm"
+import Link from "next/link"
 
 export function ProjectView({ projectId }: ProjectViewProps) {
   const [editalFile, setEditalFile] = useState<File | null>(null)
@@ -50,6 +51,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
   const {
     form,
     loading,
+    notFound,
     onSubmit,
     handleDelete
   } = useProjectForm({
@@ -76,6 +78,26 @@ export function ProjectView({ projectId }: ProjectViewProps) {
   })
 
   const handleFormSubmit = form.handleSubmit((values) => onSubmit(values, editalFile, lotes, globalInfo))
+
+  if (notFound) {
+    return (
+        <div className="flex flex-col h-full">
+            <div className="flex-none p-6 pb-0">
+                <div className="flex items-center justify-between mb-6">
+                    <h1 className="text-3xl font-bold text-foreground">Oportunidade não encontrada</h1>
+                </div>
+            </div>
+             <div className="flex-1 p-6">
+                <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                    <p className="text-muted-foreground">O projeto que você está tentando acessar não existe ou foi removido.</p>
+                    <Button asChild>
+                        <Link href="/portal">Voltar para o Dashboard</Link>
+                    </Button>
+                </div>
+            </div>
+        </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full">
