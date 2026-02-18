@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useEffect, useState, useCallback } from "react";
@@ -5,7 +6,7 @@ import Link from "next/link";
 import { getLoteById, toggleLoteFavorite, updateLoteAction } from "@/actions/projects";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Building2, MapPin, DollarSign, FileText, Star, Gavel, Calendar, ExternalLink, Landmark, Sparkles, Edit, Save, X, AlertTriangle } from "lucide-react";
+import { Loader2, ArrowLeft, Building2, MapPin, DollarSign, FileText, Star, Gavel, Calendar, ExternalLink, Landmark, Sparkles, Edit, Save, X, AlertTriangle, Pencil, Plus, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
     import { BankLogo } from "@/components/BankLogo";
@@ -41,6 +42,15 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
   const [matriculaLoading, setMatriculaLoading] = useState(false);
   const [isMatriculaExpanded, setIsMatriculaExpanded] = useState(false);
 
+  // Edit states
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [detailsForm, setDetailsForm] = useState<any>({});
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
+
+  const [isEditingPrices, setIsEditingPrices] = useState(false);
+  const [pricesForm, setPricesForm] = useState<any[]>([]);
+  const [isSavingPrices, setIsSavingPrices] = useState(false);
+
   useEffect(() => {
     if (!loteId || loteId === 'undefined') {
         setLoading(false);
@@ -53,6 +63,8 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
         setLote(data);
         setIsFavorite(data?.is_favorite || false);
         setDescriptionValue(data?.description || data?.details?.rawContent || "");
+        setDetailsForm(data?.details || {});
+        setPricesForm(data?.auction_prices || []);
       } catch (error) {
         console.error("Error fetching lote:", error);
       } finally {
@@ -104,6 +116,76 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
     }
   };
 
+  const handleSaveDetails = async () => {
+    if (!lote) return;
+    
+    setIsSavingDetails(true);
+    try {
+        const updatedDetails = {
+            ...lote.details,
+            ...detailsForm
+        };
+        
+        const updatePayload = {
+            ...updatedDetails,
+            id: lote.id,
+            title: lote.title,
+        };
+
+        const result = await updateLoteAction(lote.id, updatePayload);
+        
+        if (result.success) {
+            setLote({
+                ...lote,
+                details: updatedDetails
+            });
+            setIsEditingDetails(false);
+            toast.success("Detalhes atualizados com sucesso!");
+            window.dispatchEvent(new Event("project-update"));
+        } else {
+            throw new Error(result.error || "Erro ao salvar detalhes");
+        }
+    } catch (error: any) {
+        console.error("Error saving details:", error);
+        toast.error(error.message || "Erro ao salvar detalhes");
+    } finally {
+        setIsSavingDetails(false);
+    }
+  };
+
+  const handleSavePrices = async () => {
+    if (!lote) return;
+    
+    setIsSavingPrices(true);
+    try {
+        const updatePayload = {
+            ...lote.details,
+            id: lote.id,
+            title: lote.title,
+            auction_prices: pricesForm
+        };
+
+        const result = await updateLoteAction(lote.id, updatePayload);
+        
+        if (result.success) {
+            setLote({
+                ...lote,
+                auction_prices: pricesForm
+            });
+            setIsEditingPrices(false);
+            toast.success("Preços atualizados com sucesso!");
+            window.dispatchEvent(new Event("project-update"));
+        } else {
+            throw new Error(result.error || "Erro ao salvar preços");
+        }
+    } catch (error: any) {
+        console.error("Error saving prices:", error);
+        toast.error(error.message || "Erro ao salvar preços");
+    } finally {
+        setIsSavingPrices(false);
+    }
+  };
+
   const handleToggleFavorite = async () => {
     setFavoriteLoading(true);
     try {
@@ -152,6 +234,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                     ...updatedData, // Update local state fields like city, state, etc.
                     details: updatedData
                 });
+                setDetailsForm(updatedData); // Update form as well
                 toast.success("Análise atualizada com sucesso!");
                 window.dispatchEvent(new Event("project-update"));
             } else {
@@ -223,6 +306,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                 ...lote,
                 details: updatedDetails
             });
+            setDetailsForm(updatedDetails); // Update form
             toast.success("Matrícula processada e risco reavaliado!");
             setIsMatriculaExpanded(true);
         } else {
@@ -254,6 +338,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
             ...lote,
             details: updatedDetails
         });
+        setDetailsForm(updatedDetails); // Update form
         window.dispatchEvent(new Event("project-update"));
     } else {
         throw new Error(result.error || "Erro ao salvar informações financeiras");
@@ -286,6 +371,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
             details: updatedDetails
         };
     });
+    setDetailsForm((prev: any) => ({ ...prev, market_average_price: averagePrice }));
   }, []);
 
   const handleRemoveMatricula = async () => {
@@ -312,6 +398,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                   ...lote,
                   details: updatedDetails
               });
+              setDetailsForm(updatedDetails);
               setMatriculaFile(null);
               toast.success("Dados da matrícula removidos");
           }
@@ -337,6 +424,7 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
         ...lote,
         details: updatedDetails
     });
+    setDetailsForm(updatedDetails);
 
     try {
         const updatePayload = {
@@ -350,6 +438,26 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
         toast.error("Erro ao salvar alteração");
          // Revert on error could be implemented here
     }
+  };
+
+  const addPrice = () => {
+    setPricesForm([...pricesForm, { label: "Valor", value: "" }]);
+  };
+
+  const removePrice = (index: number) => {
+    const newPrices = [...pricesForm];
+    newPrices.splice(index, 1);
+    setPricesForm(newPrices);
+  };
+
+  const updatePrice = (index: number, field: string, value: string) => {
+    const newPrices = [...pricesForm];
+    newPrices[index] = { ...newPrices[index], [field]: value };
+    setPricesForm(newPrices);
+  };
+
+  const updateDetail = (field: string, value: string) => {
+    setDetailsForm((prev: any) => ({ ...prev, [field]: value }));
   };
 
 
@@ -564,9 +672,6 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
             </Alert>
         )}
 
-        {/* Data Discrepancy Alert */}
-        {/* Removed redundant alert */}
-
         <Card>
             <CardHeader>
             <div className="flex items-start justify-between">
@@ -606,24 +711,97 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
             <CardContent className="space-y-8">
                 {/* Price Section */}
                 <div className="grid grid-cols-1 gap-4">
-                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                        <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-semibold mb-3">
-                            <DollarSign className="h-4 w-4" />
-                            Valores de Leilão
+                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 relative">
+                        <div className="flex justify-between items-center mb-3">
+                            <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-semibold">
+                                <DollarSign className="h-4 w-4" />
+                                Valores de Leilão
+                            </div>
+                            {!isEditingPrices ? (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setIsEditingPrices(true)}
+                                    className="h-8 w-8 p-0 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40"
+                                >
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
+                            ) : (
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setIsEditingPrices(false);
+                                            setPricesForm(lote.auction_prices || []);
+                                        }}
+                                        className="h-8 w-8 p-0 text-red-600 hover:bg-red-100"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleSavePrices}
+                                        disabled={isSavingPrices}
+                                        className="h-8 w-8 p-0 text-green-600 hover:bg-green-100"
+                                    >
+                                        {isSavingPrices ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                    </Button>
+                                </div>
+                            )}
                         </div>
-                        {lote.auction_prices && lote.auction_prices.length > 0 ? (
+
+                        {isEditingPrices ? (
                             <div className="space-y-3">
-                                {lote.auction_prices.map((price: any, idx: number) => (
-                                    <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-green-200 dark:border-green-800 last:border-0 pb-2 last:pb-0">
-                                        <span className="text-green-800 dark:text-green-300 text-sm font-medium uppercase tracking-wide">{price.label}</span>
-                                        <span className="text-xl font-bold text-green-900 dark:text-green-100">{price.value}</span>
+                                {pricesForm.map((price: any, idx: number) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                        <Input
+                                            value={price.label}
+                                            onChange={(e) => updatePrice(idx, 'label', e.target.value)}
+                                            placeholder="Rótulo (ex: 1º Leilão)"
+                                            className="flex-1 h-8 text-sm"
+                                        />
+                                        <Input
+                                            value={price.value}
+                                            onChange={(e) => updatePrice(idx, 'value', e.target.value)}
+                                            placeholder="Valor (ex: R$ 100.000,00)"
+                                            className="flex-1 h-8 text-sm font-bold text-green-700"
+                                        />
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removePrice(idx)}
+                                            className="h-8 w-8 p-0 text-red-500 hover:bg-red-100"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
                                     </div>
                                 ))}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={addPrice}
+                                    className="w-full h-8 text-xs border-dashed"
+                                >
+                                    <Plus className="h-3 w-3 mr-1" /> Adicionar Valor
+                                </Button>
                             </div>
                         ) : (
-                            <div className="text-lg text-muted-foreground">
-                                Valores não informados
-                            </div>
+                            lote.auction_prices && lote.auction_prices.length > 0 ? (
+                                <div className="space-y-3">
+                                    {lote.auction_prices.map((price: any, idx: number) => (
+                                        <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-green-200 dark:border-green-800 last:border-0 pb-2 last:pb-0">
+                                            <span className="text-green-800 dark:text-green-300 text-sm font-medium uppercase tracking-wide">{price.label}</span>
+                                            <span className="text-xl font-bold text-green-900 dark:text-green-100">{price.value}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-lg text-muted-foreground">
+                                    Valores não informados
+                                </div>
+                            )
                         )}
                     </div>
                 </div>
@@ -752,9 +930,54 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
 
                     <AccordionItem value="details" className="border rounded-lg bg-card px-4">
                         <AccordionTrigger className="hover:no-underline">
-                            <div className="flex items-center gap-2">
-                                <Building2 className="h-5 w-5 text-blue-500" />
-                                <span className="font-semibold text-lg">Detalhes do Imóvel e Localização</span>
+                            <div className="flex items-center justify-between w-full pr-4">
+                                <div className="flex items-center gap-2">
+                                    <Building2 className="h-5 w-5 text-blue-500" />
+                                    <span className="font-semibold text-lg">Detalhes do Imóvel e Localização</span>
+                                </div>
+                                <div onClick={(e) => e.stopPropagation()}>
+                                    {!isEditingDetails ? (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setIsEditingDetails(true);
+                                            }}
+                                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                        >
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setIsEditingDetails(false);
+                                                    setDetailsForm(lote.details || {});
+                                                }}
+                                                className="h-8 p-2 text-red-600 hover:bg-red-100"
+                                            >
+                                                <X className="h-4 w-4 mr-1" /> Cancelar
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleSaveDetails();
+                                                }}
+                                                disabled={isSavingDetails}
+                                                className="h-8 p-2 text-green-600 hover:bg-green-100"
+                                            >
+                                                {isSavingDetails ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+                                                Salvar
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </AccordionTrigger>
                         <AccordionContent>
@@ -765,21 +988,90 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                                     </h3>
                                     <div className="space-y-2 text-muted-foreground text-sm">
                                         <div className="grid grid-cols-2 gap-2">
-                                            <div><span className="font-medium text-foreground block">Logradouro:</span> {lote.details?.address_street || "-"}</div>
-                                            <div><span className="font-medium text-foreground block">Número:</span> {lote.details?.address_number || "-"}</div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">Logradouro:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.address_street || ""} 
+                                                        onChange={(e) => updateDetail("address_street", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.details?.address_street || "-")}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">Número:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.address_number || ""} 
+                                                        onChange={(e) => updateDetail("address_number", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.details?.address_number || "-")}
+                                            </div>
                                         </div>
-                                        <div><span className="font-medium text-foreground block">Complemento:</span> {lote.details?.address_complement || "-"}</div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div><span className="font-medium text-foreground block">Bairro:</span> {lote.details?.neighborhood || "-"}</div>
-                                            <div><span className="font-medium text-foreground block">CEP:</span> {lote.details?.address_zip || "-"}</div>
+                                        <div>
+                                            <span className="font-medium text-foreground block">Complemento:</span> 
+                                            {isEditingDetails ? (
+                                                <Input 
+                                                    value={detailsForm.address_complement || ""} 
+                                                    onChange={(e) => updateDetail("address_complement", e.target.value)}
+                                                    className="h-7 text-xs"
+                                                />
+                                            ) : (lote.details?.address_complement || "-")}
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
-                                            <div><span className="font-medium text-foreground block">Cidade:</span> {lote.city || "-"}</div>
-                                            <div><span className="font-medium text-foreground block">Estado:</span> {lote.state || "-"}</div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">Bairro:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.neighborhood || ""} 
+                                                        onChange={(e) => updateDetail("neighborhood", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.details?.neighborhood || "-")}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">CEP:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.address_zip || ""} 
+                                                        onChange={(e) => updateDetail("address_zip", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.details?.address_zip || "-")}
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <span className="font-medium text-foreground block">Cidade:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.city || lote.city || ""} 
+                                                        onChange={(e) => updateDetail("city", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.city || "-")}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">Estado:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.state || lote.state || ""} 
+                                                        onChange={(e) => updateDetail("state", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.state || "-")}
+                                            </div>
                                         </div>
                                         <div className="pt-2 border-t mt-2">
                                             <span className="font-medium text-foreground block mb-1">Endereço Completo:</span> 
-                                            {lote.details?.address || "-"}
+                                            {isEditingDetails ? (
+                                                <Textarea 
+                                                    value={detailsForm.address || ""} 
+                                                    onChange={(e) => updateDetail("address", e.target.value)}
+                                                    className="text-xs min-h-[60px]"
+                                                />
+                                            ) : (lote.details?.address || "-")}
                                         </div>
                                     </div>
                                 </div>
@@ -790,16 +1082,79 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                                     </h3>
                                     <div className="space-y-2 text-muted-foreground text-sm">
                                         <div className="grid grid-cols-2 gap-2">
-                                            <div><span className="font-medium text-foreground block">Tipo:</span> {lote.details?.type || "-"}</div>
-                                            <div><span className="font-medium text-foreground block">Ocupação:</span> {lote.details?.occupancy_status || "-"}</div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">Tipo:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.type || ""} 
+                                                        onChange={(e) => updateDetail("type", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.details?.type || "-")}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">Ocupação:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.occupancy_status || ""} 
+                                                        onChange={(e) => updateDetail("occupancy_status", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.details?.occupancy_status || "-")}
+                                            </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
-                                            <div><span className="font-medium text-foreground block">Lote:</span> {lote.details?.lot || "-"}</div>
-                                            <div><span className="font-medium text-foreground block">Quadra:</span> {lote.details?.block || "-"}</div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">Lote:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.lot || ""} 
+                                                        onChange={(e) => updateDetail("lot", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.details?.lot || "-")}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">Quadra:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.block || ""} 
+                                                        onChange={(e) => updateDetail("block", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.details?.block || "-")}
+                                            </div>
                                         </div>
-                                        <div><span className="font-medium text-foreground block">Condomínio:</span> {lote.details?.condominium_name || "-"}</div>
-                                        <div><span className="font-medium text-foreground block">Loteamento:</span> {lote.details?.subdivision_name || "-"}</div>
-                                        <div><span className="font-medium text-foreground block">Vagas de Garagem:</span> {lote.details?.parking_spaces || "-"}</div>
+                                        <div>
+                                            <span className="font-medium text-foreground block">Condomínio:</span> 
+                                            {isEditingDetails ? (
+                                                <Input 
+                                                    value={detailsForm.condominium_name || ""} 
+                                                    onChange={(e) => updateDetail("condominium_name", e.target.value)}
+                                                    className="h-7 text-xs"
+                                                />
+                                            ) : (lote.details?.condominium_name || "-")}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-foreground block">Loteamento:</span> 
+                                            {isEditingDetails ? (
+                                                <Input 
+                                                    value={detailsForm.subdivision_name || ""} 
+                                                    onChange={(e) => updateDetail("subdivision_name", e.target.value)}
+                                                    className="h-7 text-xs"
+                                                />
+                                            ) : (lote.details?.subdivision_name || "-")}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-foreground block">Vagas de Garagem:</span> 
+                                            {isEditingDetails ? (
+                                                <Input 
+                                                    value={detailsForm.parking_spaces || ""} 
+                                                    onChange={(e) => updateDetail("parking_spaces", e.target.value)}
+                                                    className="h-7 text-xs"
+                                                />
+                                            ) : (lote.details?.parking_spaces || "-")}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -809,11 +1164,47 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                                     </h3>
                                     <div className="space-y-2 text-muted-foreground text-sm">
                                         <div className="grid grid-cols-2 gap-2">
-                                            <div><span className="font-medium text-foreground block">Matrícula:</span> {lote.details?.registry_id || "-"}</div>
-                                            <div><span className="font-medium text-foreground block">Cartório:</span> {lote.details?.registry_office || "-"}</div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">Matrícula:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.registry_id || ""} 
+                                                        onChange={(e) => updateDetail("registry_id", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.details?.registry_id || "-")}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">Cartório:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.registry_office || ""} 
+                                                        onChange={(e) => updateDetail("registry_office", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.details?.registry_office || "-")}
+                                            </div>
                                         </div>
-                                        <div><span className="font-medium text-foreground block">Inscrição Municipal:</span> {lote.details?.city_registration_id || "-"}</div>
-                                        <div><span className="font-medium text-foreground block">Fração Ideal:</span> {lote.details?.ideal_fraction || "-"}</div>
+                                        <div>
+                                            <span className="font-medium text-foreground block">Inscrição Municipal:</span> 
+                                            {isEditingDetails ? (
+                                                <Input 
+                                                    value={detailsForm.city_registration_id || ""} 
+                                                    onChange={(e) => updateDetail("city_registration_id", e.target.value)}
+                                                    className="h-7 text-xs"
+                                                />
+                                            ) : (lote.details?.city_registration_id || "-")}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-foreground block">Fração Ideal:</span> 
+                                            {isEditingDetails ? (
+                                                <Input 
+                                                    value={detailsForm.ideal_fraction || ""} 
+                                                    onChange={(e) => updateDetail("ideal_fraction", e.target.value)}
+                                                    className="h-7 text-xs"
+                                                />
+                                            ) : (lote.details?.ideal_fraction || "-")}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -823,11 +1214,47 @@ export default function LoteView({ loteId, projectId }: LoteViewProps) {
                                     </h3>
                                     <div className="space-y-2 text-muted-foreground text-sm">
                                         <div className="grid grid-cols-2 gap-2">
-                                            <div><span className="font-medium text-foreground block">Área Privativa:</span> {lote.details?.area_private || "-"}</div>
-                                            <div><span className="font-medium text-foreground block">Área Total:</span> {lote.details?.area_total || "-"}</div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">Área Privativa:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.area_private || ""} 
+                                                        onChange={(e) => updateDetail("area_private", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.details?.area_private || "-")}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium text-foreground block">Área Total:</span> 
+                                                {isEditingDetails ? (
+                                                    <Input 
+                                                        value={detailsForm.area_total || ""} 
+                                                        onChange={(e) => updateDetail("area_total", e.target.value)}
+                                                        className="h-7 text-xs"
+                                                    />
+                                                ) : (lote.details?.area_total || "-")}
+                                            </div>
                                         </div>
-                                        <div><span className="font-medium text-foreground block">Área Terreno:</span> {lote.details?.area_land || "-"}</div>
-                                        <div><span className="font-medium text-foreground block">Área (Genérica):</span> {lote.details?.size || "-"}</div>
+                                        <div>
+                                            <span className="font-medium text-foreground block">Área Terreno:</span> 
+                                            {isEditingDetails ? (
+                                                <Input 
+                                                    value={detailsForm.area_land || ""} 
+                                                    onChange={(e) => updateDetail("area_land", e.target.value)}
+                                                    className="h-7 text-xs"
+                                                />
+                                            ) : (lote.details?.area_land || "-")}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-foreground block">Área (Genérica):</span> 
+                                            {isEditingDetails ? (
+                                                <Input 
+                                                    value={detailsForm.size || ""} 
+                                                    onChange={(e) => updateDetail("size", e.target.value)}
+                                                    className="h-7 text-xs"
+                                                />
+                                            ) : (lote.details?.size || "-")}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

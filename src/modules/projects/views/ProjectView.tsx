@@ -4,8 +4,7 @@ import { useState} from "react"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { Form } from "@/components/ui/form"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Calendar, MapPin, Gavel, ExternalLink } from "lucide-react"
+import { Loader2 } from "lucide-react"
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -18,7 +17,6 @@ interface ProjectViewProps {
   projectId?: string
 }
 
-import { BankLogo } from "@/components/BankLogo"
 import { DeleteProjectDialog } from "../components/DeleteProjectDialog"
 import { ManualLoteDialog } from "../components/ManualLoteDialog"
 import { DocumentUpload } from "../components/DocumentUpload"
@@ -27,6 +25,7 @@ import { BasicInfoForm } from "../components/BasicInfoForm"
 import { useProjectLotes } from "../hooks/useProjectLotes"
 import { useEditalAnalysis } from "../hooks/useEditalAnalysis"
 import { useProjectForm } from "../hooks/useProjectForm"
+import { GlobalInfoCard } from "../components/GlobalInfoCard"
 import Link from "next/link"
 
 export function ProjectView({ projectId }: ProjectViewProps) {
@@ -78,6 +77,10 @@ export function ProjectView({ projectId }: ProjectViewProps) {
   })
 
   const handleFormSubmit = form.handleSubmit((values) => onSubmit(values, editalFile, lotes, globalInfo))
+
+  const handleUpdateLote = (loteId: string, newData: any) => {
+    setLotes(prev => prev.map(l => l.id === loteId ? { ...l, ...newData } : l))
+  }
 
   if (notFound) {
     return (
@@ -134,73 +137,10 @@ export function ProjectView({ projectId }: ProjectViewProps) {
 
                     {/* Section 2.5: Global Info (Displayed if available) */}
                     {globalInfo && (
-                        <Card className="border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
-                            <CardHeader>
-                                <CardTitle className="text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
-                                    <Gavel className="h-5 w-5" />
-                                    Informações do Leilão
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {globalInfo.bankName && (
-                                    <div className="flex items-start gap-3">
-                                        <div className="mt-1">
-                                            <BankLogo bankName={globalInfo.bankName} size="md" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Banco / Comitente</p>
-                                            <p className="text-base text-indigo-700 dark:text-indigo-300">{globalInfo.bankName}</p>
-                                        </div>
-                                    </div>
-                                )}
-                                {globalInfo.auctionDate && (
-                                    <div className="flex items-start gap-3">
-                                        <Calendar className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-1" />
-                                        <div>
-                                            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Datas e Horários</p>
-                                            <div className="flex flex-col gap-1 mt-1">
-                                                {globalInfo.auctionDate.map((date: string, idx: number) => (
-                                                    <div key={idx} className="flex items-start gap-2">
-                                                        <span className="text-indigo-400 dark:text-indigo-500">•</span>
-                                                        <span className="text-base text-indigo-700 dark:text-indigo-300">{date}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                                {globalInfo.auctionLocation && (
-                                    <div className="flex items-start gap-3 md:col-span-2">
-                                        <MapPin className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-1" />
-                                        <div>
-                                            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Local / Site</p>
-                                            {globalInfo.auctionLocation.match(/^(https?:\/\/|www\.)|(\.com|\.br|\.net|\.org)/i) ? (
-                                                <a 
-                                                    href={globalInfo.auctionLocation.startsWith('http') ? globalInfo.auctionLocation : `https://${globalInfo.auctionLocation}`} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className="text-base text-indigo-700 dark:text-indigo-300 hover:underline flex items-center gap-1"
-                                                >
-                                                    <span className="truncate">{globalInfo.auctionLocation}</span>
-                                                    <ExternalLink className="h-4 w-4 shrink-0 opacity-50" />
-                                                </a>
-                                            ) : (
-                                                <p className="text-base text-indigo-700 dark:text-indigo-300">{globalInfo.auctionLocation}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                                {globalInfo.auctioneer && (
-                                    <div className="flex items-start gap-3">
-                                        <Gavel className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-1" />
-                                        <div>
-                                            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Leiloeiro</p>
-                                            <p className="text-base text-indigo-700 dark:text-indigo-300">{globalInfo.auctioneer}</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                        <GlobalInfoCard 
+                            globalInfo={globalInfo} 
+                            onUpdate={setGlobalInfo} 
+                        />
                     )}
 
                     {/* Section 3: AI Output & Values */}
@@ -211,6 +151,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                         onToggleFavorite={handleToggleFavorite}
                         onManualAdd={() => setManualDialogOpen(true)}
                         onAiExtraction={handleAiExtraction}
+                        onUpdateLote={handleUpdateLote}
                         loading={loading}
                         manualLoading={manualLoading}
                         aiLoading={aiLoading}
@@ -220,7 +161,6 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                     />
 
                     <div className="flex justify-end gap-4 pt-4">
-                        {/* ... existing buttons ... */}
                         {projectId && (
                             <DeleteProjectDialog loading={loading} onDelete={handleDelete} />
                         )}

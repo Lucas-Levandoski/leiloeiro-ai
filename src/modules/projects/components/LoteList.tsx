@@ -1,3 +1,4 @@
+
 import { Accordion } from "@/components/ui/accordion"
 import { LoteCard } from "./LoteCard"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -11,6 +12,7 @@ interface LoteListProps {
   onToggleFavorite: (loteId: string, currentStatus: boolean) => void
   onManualAdd: () => void
   onAiExtraction: () => void
+  onUpdateLote?: (loteId: string, newData: any) => void
   loading: boolean
   manualLoading: boolean
   aiLoading: boolean
@@ -26,6 +28,7 @@ export function LoteList({
   onToggleFavorite,
   onManualAdd,
   onAiExtraction,
+  onUpdateLote,
   loading,
   manualLoading,
   aiLoading,
@@ -109,6 +112,7 @@ export function LoteList({
                                 projectId={projectId || ''} 
                                 onDelete={onDeleteLote} 
                                 onToggleFavorite={onToggleFavorite}
+                                onUpdate={onUpdateLote}
                                 index={index}
                             />
                         </div>
